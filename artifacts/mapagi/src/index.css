@@ -2247,3 +2247,34 @@
   border: 1px solid rgba(204,17,17,0.2);
 }
 
+
+/* =====================
+   Firebase Sync UI
+   ===================== */
+.sync-notice {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1rem; border-radius: 0.75rem;
+  background: rgba(200,112,224,0.08);
+  border: 1px solid rgba(200,112,224,0.2);
+  font-size: 0.82rem; color: #7a4090;
+}
+.sync-ok {
+  padding: 0.6rem 1rem; border-radius: 0.75rem;
+  background: #f0fff4; border: 1px solid rgba(80,200,120,0.3);
+  font-size: 0.82rem; color: #208040; font-weight: 600;
+}
+.sync-error {
+  padding: 0.6rem 1rem; border-radius: 0.75rem;
+  background: #fff8f0; border: 1px solid rgba(240,120,50,0.3);
+  font-size: 0.82rem; color: #c05020; font-weight: 600;
+}
+.sync-info-box {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.75rem; padding: 0.6rem 0.8rem;
+  background: rgba(200,112,224,0.07); border-radius: 0.6rem;
+  font-size: 0.8rem; color: #7a4090;
+}
+.nickname-preview {
+  margin-top: 0.35rem; font-size: 0.82rem; color: #a070b0;
+}
+.nickname-preview strong { color: #e8457a; }

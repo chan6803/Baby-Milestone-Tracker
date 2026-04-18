@@ -1,0 +1,11 @@
+{
+  "appId": "com.example.myapp",
+  "appName": "MyApp",
+  "webDir": "artifacts/mapagi/dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
