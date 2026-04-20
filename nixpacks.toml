@@ -1,12 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_20", "pnpm"]
 
 [phases.install]
-cmds = [
-  "corepack enable",
-  "corepack prepare pnpm@9 --activate",
-  "pnpm install --frozen-lockfile=false --ignore-scripts --config.minimumReleaseAge=0"
-]
+cmds = ["pnpm install --frozen-lockfile=false --ignore-scripts"]
 
 [phases.build]
 cmds = ["pnpm --filter @workspace/mapagi run build:railway"]
