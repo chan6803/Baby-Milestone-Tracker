@@ -1,0 +1,915 @@
+From 702ab1b6ebb349e4842e7f980f94273ba57449ab Mon Sep 17 00:00:00 2001
+From: chan <a22604443@gmail.com>
+Date: Mon, 20 Apr 2026 14:44:23 +0900
+Subject: [PATCH 1/4] =?UTF-8?q?fix:=20PWA=20manifest=20link=20=EB=B0=8F=20?=
+ =?UTF-8?q?=EB=A9=94=ED=83=80=ED=83=9C=EA=B7=B8=20=EC=B6=94=EA=B0=80=20(in?=
+ =?UTF-8?q?dex.html)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ artifacts/mapagi/index.html | 34 ++++++++++++++++++++++++++++------
+ 1 file changed, 28 insertions(+), 6 deletions(-)
+
+diff --git a/artifacts/mapagi/index.html b/artifacts/mapagi/index.html
+index 8beed1c..88317e3 100644
+--- a/artifacts/mapagi/index.html
++++ b/artifacts/mapagi/index.html
+@@ -1,13 +1,35 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="ko">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+-    <title>엄마, 아빠, 그리고 아기</title>
+-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+-    <link rel="preconnect" href="https://fonts.googleapis.com">
+-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++
++    <!-- 앱 기본 정보 -->
++    <title>마빠기 - 우리 가족 아기 성장 기록</title>
++    <meta name="description" content="엄마, 아빠, 아기의 소중한 성장 기록 앱" />
++    <meta name="theme-color" content="#e8457a" />
++
++    <!-- PWA 매니페스트 (필수) -->
++    <link rel="manifest" href="/manifest.webmanifest" />
++
++    <!-- iOS 홈 화면 추가 지원 -->
++    <meta name="apple-mobile-web-app-capable" content="yes" />
++    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
++    <meta name="apple-mobile-web-app-title" content="마빠기" />
++    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
++
++    <!-- 파비콘 -->
++    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
++
++    <!-- Open Graph (카카오톡 등 공유 시 미리보기) -->
++    <meta property="og:title" content="마빠기 - 우리 가족 아기 성장 기록" />
++    <meta property="og:description" content="엄마, 아빠, 아기의 소중한 성장 기록 앱" />
++    <meta property="og:type" content="website" />
++
++    <!-- 구글 폰트 -->
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+   </head>
+   <body>
+     <div id="root"></div>
+-- 
+2.34.1
+
+
+From d7907a7a8721a3342d7275ded29962c49a494c23 Mon Sep 17 00:00:00 2001
+From: chan <a22604443@gmail.com>
+Date: Mon, 20 Apr 2026 15:05:59 +0900
+Subject: [PATCH 2/4] =?UTF-8?q?feat:=20=EB=A1=9C=EA=B7=B8=EC=9D=B8=20?=
+ =?UTF-8?q?=EA=B8=B0=EB=8A=A5=20=EC=B6=94=EA=B0=80,=20=ED=83=9C=EB=AA=85?=
+ =?UTF-8?q?=20=ED=95=84=EB=93=9C,=20'=ED=83=9C=EC=96=B4=EB=82=9C=20?=
+ =?UTF-8?q?=EB=82=A0(=EC=98=88=EC=A0=95=EC=9D=BC)'=20=EB=9D=BC=EB=B2=A8=20?=
+ =?UTF-8?q?=EC=88=98=EC=A0=95?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ artifacts/mapagi/src/App.tsx                  |  64 ++++--
+ .../mapagi/src/components/LoginScreen.tsx     | 194 ++++++++++++++++++
+ artifacts/mapagi/src/index.css                | 139 +++++++++++++
+ artifacts/mapagi/src/lib/family-sync.ts       |  13 +-
+ artifacts/mapagi/src/pages/home.tsx           |  71 +++++--
+ 5 files changed, 447 insertions(+), 34 deletions(-)
+ create mode 100755 artifacts/mapagi/src/components/LoginScreen.tsx
+
+diff --git a/artifacts/mapagi/src/App.tsx b/artifacts/mapagi/src/App.tsx
+index c66048e..842f280 100644
+--- a/artifacts/mapagi/src/App.tsx
++++ b/artifacts/mapagi/src/App.tsx
+@@ -9,6 +9,8 @@ import DailyPage from "@/pages/daily";
+ import GalleryPage from "@/pages/gallery";
+ import PregnancyPage from "@/pages/pregnancy";
+ import SuppliesPage from "@/pages/supplies";
++import LoginScreen from "@/components/LoginScreen";
++import type { BabyProfile } from "@/pages/home";
+ 
+ const queryClient = new QueryClient();
+ 
+@@ -16,12 +18,10 @@ type Page = "home" | "vaccine" | "pregnancy" | "clinic" | "daily" | "supplies" |
+ 
+ function isFutureBirthDate(): boolean {
+   try {
+-    // check all babies for the active one
+     const babies = JSON.parse(localStorage.getItem("mapagi-babies") || "[]");
+     const activeId = localStorage.getItem("mapagi-active-baby");
+     let baby = babies.find((b: any) => b.id === activeId) || babies[0];
+     if (!baby) {
+-      // legacy fallback
+       const fam = JSON.parse(localStorage.getItem("mapagi-family") || "{}");
+       baby = fam;
+     }
+@@ -34,11 +34,16 @@ function isFutureBirthDate(): boolean {
+   } catch { return false; }
+ }
+ 
++// 로그인 상태 확인 — localStorage에 family-id가 있으면 로그인된 것으로 간주
++function isLoggedIn(): boolean {
++  return !!localStorage.getItem("mapagi-family-id");
++}
++
+ function AppContent() {
+-  const [page, setPage] = useState<Page>("home");
+-  const [future, setFuture] = useState<boolean>(isFutureBirthDate);
++  const [loggedIn, setLoggedIn]   = useState<boolean>(isLoggedIn);
++  const [page, setPage]           = useState<Page>("home");
++  const [future, setFuture]       = useState<boolean>(isFutureBirthDate);
+ 
+-  // re-check future status whenever home data might change
+   useEffect(() => {
+     const check = () => setFuture(isFutureBirthDate());
+     window.addEventListener("storage", check);
+@@ -46,27 +51,52 @@ function AppContent() {
+     return () => { window.removeEventListener("storage", check); clearInterval(interval); };
+   }, []);
+ 
++  // 로그인 처리: 가족 데이터를 localStorage에 반영하고 앱 진입
++  function handleLogin(_familyId: string, babies: BabyProfile[] | null) {
++    if (babies && babies.length > 0) {
++      localStorage.setItem("mapagi-babies", JSON.stringify(babies));
++      localStorage.setItem("mapagi-active-baby", babies[0].id);
++    }
++    setLoggedIn(true);
++    setPage("home");
++  }
++
++  // 로그아웃 처리
++  function handleLogout() {
++    const keys = [
++      "mapagi-family-id", "mapagi-login-mom", "mapagi-login-dad",
++      "mapagi-login-baby", "mapagi-babies", "mapagi-active-baby", "mapagi-family",
++    ];
++    keys.forEach(k => localStorage.removeItem(k));
++    setLoggedIn(false);
++  }
++
++  // 로그인 전이면 로그인 화면만 보여줌
++  if (!loggedIn) {
++    return <LoginScreen onLogin={handleLogin} />;
++  }
++
+   const NAV_ITEMS: { id: Page; icon: string; label: string }[] = [
+-    { id: "home", icon: "🏠", label: "홈" },
++    { id: "home",     icon: "🏠",  label: "홈" },
+     future
+       ? { id: "pregnancy", icon: "🤰", label: "임신일지" }
+-      : { id: "vaccine", icon: "💉", label: "접종" },
+-    { id: "clinic", icon: "🏥", label: "소아과" },
+-    { id: "daily", icon: "📋", label: "기록" },
++      : { id: "vaccine",   icon: "💉", label: "접종" },
++    { id: "clinic",   icon: "🏥",  label: "소아과" },
++    { id: "daily",    icon: "📋",  label: "기록" },
+     { id: "supplies", icon: "🛍️", label: "육아준비물" },
+-    { id: "gallery", icon: "📸", label: "사진첩" },
++    { id: "gallery",  icon: "📸",  label: "사진첩" },
+   ];
+ 
+   return (
+     <div className="app-root">
+       <div className="app-content">
+-        {page === "home" && <Home />}
+-        {page === "vaccine" && <VaccinePage />}
+-        {page === "pregnancy" && <PregnancyPage />}
+-        {page === "clinic" && <ClinicPage />}
+-        {page === "daily" && <DailyPage />}
+-        {page === "supplies" && <SuppliesPage />}
+-        {page === "gallery" && <GalleryPage />}
++        {page === "home"       && <Home onLogout={handleLogout} />}
++        {page === "vaccine"    && <VaccinePage />}
++        {page === "pregnancy"  && <PregnancyPage />}
++        {page === "clinic"     && <ClinicPage />}
++        {page === "daily"      && <DailyPage />}
++        {page === "supplies"   && <SuppliesPage />}
++        {page === "gallery"    && <GalleryPage />}
+       </div>
+       <nav className="bottom-nav">
+         {NAV_ITEMS.map(item => (
+diff --git a/artifacts/mapagi/src/components/LoginScreen.tsx b/artifacts/mapagi/src/components/LoginScreen.tsx
+new file mode 100755
+index 0000000..f053efb
+--- /dev/null
++++ b/artifacts/mapagi/src/components/LoginScreen.tsx
+@@ -0,0 +1,194 @@
++// ================================================================
++// 로그인 화면
++// 엄마·아빠·아기 이름 + 태어난 날(예정일)로 가족 식별
++// 계정/비밀번호 없이 이 4가지 정보가 로그인을 대체합니다
++// ================================================================
++
++import { useState } from "react";
++import { getFamilyId, loadFamilyData } from "@/lib/family-sync";
++import { isFirebaseConfigured } from "@/lib/firebase";
++import type { BabyProfile } from "@/pages/home";
++
++interface Props {
++  onLogin: (familyId: string, babies: BabyProfile[] | null) => void;
++}
++
++export default function LoginScreen({ onLogin }: Props) {
++  const [momName, setMomName]     = useState("");
++  const [dadName, setDadName]     = useState("");
++  const [babyName, setBabyName]   = useState("");
++  const [birthDate, setBirthDate] = useState("");
++  const [loading, setLoading]     = useState(false);
++  const [error, setError]         = useState("");
++  const [mode, setMode]           = useState<"start" | "existing">("start");
++
++  async function handleStart() {
++    const mom  = momName.trim();
++    const dad  = dadName.trim();
++    const baby = babyName.trim();
++
++    if (!mom || !dad || !baby) {
++      setError("엄마, 아빠, 아기 이름은 꼭 입력해 주세요.");
++      return;
++    }
++    setError("");
++    setLoading(true);
++
++    try {
++      // 가족 ID = SHA-256(엄마|아빠|아기) — 같은 이름이면 항상 같은 ID
++      const familyId = await getFamilyId(mom, dad, baby);
++
++      let loadedBabies: BabyProfile[] | null = null;
++
++      if (isFirebaseConfigured) {
++        // Firebase에 기존 데이터가 있으면 불러옴
++        const remote = await loadFamilyData(familyId);
++        if (remote?.babies && Array.isArray(remote.babies) && remote.babies.length > 0) {
++          loadedBabies = remote.babies as BabyProfile[];
++          setMode("existing");
++        }
++      }
++
++      // 새 가족이면 입력한 정보로 첫 번째 아기 프로필 생성
++      if (!loadedBabies) {
++        const firstBaby: BabyProfile = {
++          id: Date.now().toString(),
++          momName: mom,
++          dadName: dad,
++          babyName: baby,
++          nickname: "",
++          birthDate,
++        };
++        loadedBabies = [firstBaby];
++      }
++
++      // localStorage에 세션 저장
++      localStorage.setItem("mapagi-family-id",  familyId);
++      localStorage.setItem("mapagi-login-mom",  mom);
++      localStorage.setItem("mapagi-login-dad",  dad);
++      localStorage.setItem("mapagi-login-baby", baby);
++      localStorage.setItem("mapagi-babies",     JSON.stringify(loadedBabies));
++      if (!localStorage.getItem("mapagi-active-baby")) {
++        localStorage.setItem("mapagi-active-baby", loadedBabies[0].id);
++      }
++
++      onLogin(familyId, loadedBabies);
++    } catch (e) {
++      console.error(e);
++      setError("오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
++    } finally {
++      setLoading(false);
++    }
++  }
++
++  return (
++    <div className="login-screen">
++      <div className="login-inner">
++        {/* 타이틀 */}
++        <div className="login-title-wrap">
++          <div className="login-emoji">🍼</div>
++          <h1 className="login-title">
++            <span className="login-title-soft">엄</span>
++            <span className="login-title-pink">마</span>
++            <span className="login-title-soft">, 아</span>
++            <span className="login-title-pink">빠</span>
++            <span className="login-title-soft">, 아</span>
++            <span className="login-title-pink">기</span>
++          </h1>
++          <p className="login-subtitle">우리 가족 아기 성장 기록</p>
++        </div>
++
++        {/* 카드 */}
++        <div className="login-card">
++          <p className="login-desc">
++            처음 사용하시면 <strong>가족 정보를 입력</strong>하고 시작하세요.
++            <br />
++            같은 정보를 입력하면 <strong>다른 기기에서도 같은 데이터</strong>로 연결됩니다.
++          </p>
++
++          {!isFirebaseConfigured && (
++            <div className="login-notice">
++              ☁️ Firebase 미설정 — 이 기기에만 데이터가 저장됩니다.
++            </div>
++          )}
++
++          <div className="field-group">
++            <label className="field-label">
++              <span className="label-icon">👩</span> 엄마 이름
++            </label>
++            <input
++              className="field-input"
++              type="text"
++              placeholder="엄마 이름을 입력하세요"
++              value={momName}
++              onChange={e => setMomName(e.target.value)}
++              onKeyDown={e => e.key === "Enter" && handleStart()}
++            />
++          </div>
++
++          <div className="field-group">
++            <label className="field-label">
++              <span className="label-icon">👨</span> 아빠 이름
++            </label>
++            <input
++              className="field-input"
++              type="text"
++              placeholder="아빠 이름을 입력하세요"
++              value={dadName}
++              onChange={e => setDadName(e.target.value)}
++              onKeyDown={e => e.key === "Enter" && handleStart()}
++            />
++          </div>
++
++          <div className="field-group">
++            <label className="field-label">
++              <span className="label-icon">👶</span> 아기 이름
++            </label>
++            <input
++              className="field-input"
++              type="text"
++              placeholder="아기 이름을 입력하세요"
++              value={babyName}
++              onChange={e => setBabyName(e.target.value)}
++              onKeyDown={e => e.key === "Enter" && handleStart()}
++            />
++          </div>
++
++          <div className="field-group">
++            <label className="field-label">
++              <span className="label-icon">🎂</span> 태어난 날(예정일)
++              <span className="field-hint"> (선택)</span>
++            </label>
++            <input
++              className="field-input"
++              type="date"
++              value={birthDate}
++              onChange={e => setBirthDate(e.target.value)}
++            />
++          </div>
++
++          {error && (
++            <div className="login-error">{error}</div>
++          )}
++
++          <button
++            className="save-btn"
++            onClick={handleStart}
++            disabled={loading}
++          >
++            {loading
++              ? "⏳ 확인 중..."
++              : isFirebaseConfigured
++                ? "✨ 시작하기 / 데이터 불러오기"
++                : "✨ 시작하기"}
++          </button>
++
++          <p className="login-tip">
++            💡 엄마·아빠·아기 이름이 같으면 <br />
++            다른 기기에서도 자동으로 연결됩니다
++          </p>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/artifacts/mapagi/src/index.css b/artifacts/mapagi/src/index.css
+index 1d47481..6dd0fa8 100644
+--- a/artifacts/mapagi/src/index.css
++++ b/artifacts/mapagi/src/index.css
+@@ -2278,3 +2278,142 @@
+   margin-top: 0.35rem; font-size: 0.82rem; color: #a070b0;
+ }
+ .nickname-preview strong { color: #e8457a; }
++
++/* =====================
++   로그인 화면
++   ===================== */
++.login-screen {
++  min-height: 100vh;
++  background: linear-gradient(135deg, #fff0f5 0%, #f5f0ff 50%, #f0f7ff 100%);
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  padding: 1.5rem 1rem;
++}
++.login-inner {
++  width: 100%;
++  max-width: 420px;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 1.5rem;
++}
++.login-title-wrap {
++  text-align: center;
++}
++.login-emoji {
++  font-size: 3rem;
++  margin-bottom: 0.4rem;
++  animation: bounce 1.6s infinite;
++}
++@keyframes bounce {
++  0%,100% { transform: translateY(0); }
++  50%      { transform: translateY(-8px); }
++}
++.login-title {
++  font-size: clamp(2rem, 7vw, 3rem);
++  font-weight: 900;
++  letter-spacing: -0.02em;
++  line-height: 1.2;
++}
++.login-title-soft  { color: #9b6db5; font-weight: 700; }
++.login-title-pink  {
++  color: #e8457a;
++  font-size: 1.25em;
++  font-weight: 900;
++  text-shadow: 0 2px 12px rgba(232,69,122,0.35);
++}
++.login-subtitle {
++  margin-top: 0.4rem;
++  font-size: 1rem;
++  color: #a07ab0;
++  font-weight: 500;
++  letter-spacing: 0.04em;
++}
++.login-card {
++  width: 100%;
++  background: white;
++  border-radius: 1.5rem;
++  padding: 2rem 1.75rem;
++  box-shadow: 0 8px 32px rgba(180,80,180,0.15), 0 2px 8px rgba(0,0,0,0.06);
++  border: 1px solid rgba(220,160,220,0.25);
++}
++.login-desc {
++  font-size: 0.88rem;
++  color: #7a5090;
++  line-height: 1.7;
++  margin-bottom: 1.25rem;
++  background: rgba(200,112,224,0.07);
++  border-radius: 0.7rem;
++  padding: 0.75rem 0.9rem;
++}
++.login-notice {
++  font-size: 0.8rem;
++  color: #a07040;
++  background: #fff9f0;
++  border: 1px solid rgba(220,160,60,0.25);
++  border-radius: 0.6rem;
++  padding: 0.5rem 0.8rem;
++  margin-bottom: 1rem;
++}
++.login-error {
++  color: #d04040;
++  font-size: 0.85rem;
++  font-weight: 600;
++  background: #fff5f5;
++  border: 1px solid rgba(208,64,64,0.2);
++  border-radius: 0.6rem;
++  padding: 0.5rem 0.8rem;
++  margin-bottom: 0.75rem;
++}
++.login-tip {
++  text-align: center;
++  margin-top: 1rem;
++  font-size: 0.8rem;
++  color: #b090c0;
++  line-height: 1.6;
++}
++
++/* =====================
++   홈 로그아웃 바
++   ===================== */
++.logout-bar {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 0.6rem;
++  margin-top: 0.5rem;
++  flex-wrap: wrap;
++}
++.logout-user {
++  font-size: 0.82rem;
++  color: #a070b0;
++  font-weight: 600;
++}
++.logout-btn {
++  font-size: 0.78rem;
++  color: #c060a0;
++  background: rgba(220,100,180,0.08);
++  border: 1px solid rgba(220,100,180,0.25);
++  border-radius: 1rem;
++  padding: 0.2rem 0.7rem;
++  cursor: pointer;
++  transition: all 0.2s;
++}
++.logout-btn:hover { background: rgba(220,100,180,0.15); }
++.logout-confirm-wrap {
++  display: flex;
++  align-items: center;
++  gap: 0.4rem;
++}
++.logout-confirm-text { font-size: 0.82rem; color: #c06080; font-weight: 600; }
++.logout-confirm-yes {
++  font-size: 0.78rem; color: white;
++  background: #e8457a; border: none;
++  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
++}
++.logout-confirm-no {
++  font-size: 0.78rem; color: #7a5090;
++  background: rgba(120,80,160,0.1); border: none;
++  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
++}
+diff --git a/artifacts/mapagi/src/lib/family-sync.ts b/artifacts/mapagi/src/lib/family-sync.ts
+index 28c3500..9e80dda 100644
+--- a/artifacts/mapagi/src/lib/family-sync.ts
++++ b/artifacts/mapagi/src/lib/family-sync.ts
+@@ -12,7 +12,7 @@ import {
+ } from "firebase/storage";
+ import { db, storage, isFirebaseConfigured } from "./firebase";
+ 
+-// 가족 고유 ID 생성 (이름 3개를 조합해 해시)
++// ── 가족 고유 ID 생성 (이름 3개를 조합해 해시) ────────────────────
+ export async function getFamilyId(momName: string, dadName: string, babyName: string): Promise<string> {
+   const text = [momName, dadName, babyName]
+     .map(s => s.trim().toLowerCase())
+@@ -23,6 +23,17 @@ export async function getFamilyId(momName: string, dadName: string, babyName: st
+   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
+ }
+ 
++// ── 기존 가족 데이터 불러오기 (로그인 시 사용) ────────────────────
++export async function loadFamilyData(familyId: string): Promise<DocumentData | null> {
++  if (!isFirebaseConfigured || !db) return null;
++  try {
++    const snap = await getDoc(doc(db, "families", familyId, "info", "main"));
++    return snap.exists() ? snap.data() : null;
++  } catch {
++    return null;
++  }
++}
++
+ // ── 가족/아기 정보 저장 ──────────────────────────────────────────
+ export async function syncFamilyInfo(familyId: string, data: DocumentData) {
+   if (!isFirebaseConfigured || !db) return;
+diff --git a/artifacts/mapagi/src/pages/home.tsx b/artifacts/mapagi/src/pages/home.tsx
+index 193b7ae..963cf46 100644
+--- a/artifacts/mapagi/src/pages/home.tsx
++++ b/artifacts/mapagi/src/pages/home.tsx
+@@ -7,7 +7,7 @@ export interface BabyProfile {
+   momName: string;
+   dadName: string;
+   babyName: string;
+-  nickname: string;
++  nickname: string;   // 태명 (선택)
+   birthDate: string;
+ }
+ 
+@@ -38,6 +38,7 @@ export function getActiveBaby(): BabyProfile | null {
+   } catch { return null; }
+ }
+ 
++// 아기 이름(태명) 형식으로 표시
+ export function getBabyDisplayName(baby: BabyProfile | null): string {
+   if (!baby) return "아기";
+   if (baby.babyName && baby.nickname) return `${baby.babyName}(${baby.nickname})`;
+@@ -78,15 +79,20 @@ function formatDate(d: string): string {
+ 
+ const ORDINAL = ["첫째","둘째","셋째","넷째","다섯째"];
+ 
+-export default function Home() {
+-  const [babies, setBabies] = useState<BabyProfile[]>(loadBabies);
++interface HomeProps {
++  onLogout?: () => void;
++}
++
++export default function Home({ onLogout }: HomeProps = {}) {
++  const [babies, setBabies]   = useState<BabyProfile[]>(loadBabies);
+   const [activeId, setActiveId] = useState<string>(
+     () => localStorage.getItem("mapagi-active-baby") || loadBabies()[0]?.id || ""
+   );
+-  const [saved, setSaved] = useState(false);
+-  const [syncing, setSyncing] = useState(false);
++  const [saved, setSaved]         = useState(false);
++  const [syncing, setSyncing]     = useState(false);
+   const [syncStatus, setSyncStatus] = useState<"idle"|"synced"|"error">("idle");
+-  const [today, setToday] = useState(new Date());
++  const [today, setToday]         = useState(new Date());
++  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+ 
+   useEffect(() => {
+     const t = setInterval(() => setToday(new Date()), 60000);
+@@ -139,24 +145,51 @@ export default function Home() {
+     setActiveId(na); localStorage.setItem("mapagi-active-baby", na);
+   }
+ 
+-  const days = activeBaby ? getDaysSinceBirth(activeBaby.birthDate) : null;
++  const days      = activeBaby ? getDaysSinceBirth(activeBaby.birthDate) : null;
+   const daysUntil = activeBaby ? getDaysUntilBirth(activeBaby.birthDate) : null;
+-  const isFuture = daysUntil !== null;
+-  const pregWeek = daysUntil ? Math.max(0, 40 - Math.ceil(daysUntil / 7)) : null;
+-  const todayStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
++  const isFuture  = daysUntil !== null;
++  const pregWeek  = daysUntil ? Math.max(0, 40 - Math.ceil(daysUntil / 7)) : null;
++  const todayStr  = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
+   const displayName = getBabyDisplayName(activeBaby || null);
+ 
++  // 로그인된 가족 이름 (헤더 표시용)
++  const loginMom  = localStorage.getItem("mapagi-login-mom") || activeBaby?.momName || "";
++  const loginDad  = localStorage.getItem("mapagi-login-dad") || activeBaby?.dadName || "";
++
+   return (
+     <div className="min-h-screen app-bg flex flex-col items-center py-10 px-4">
+-      <div className="title-section mb-10 text-center">
++
++      {/* 타이틀 + 로그아웃 */}
++      <div className="title-section mb-6 text-center w-full max-w-md relative">
+         <h1 className="main-title">
+           <span className="normal-char">엄</span><span className="highlight-char">마</span>
+           <span className="normal-char">, 아</span><span className="highlight-char">빠</span>
+           <span className="normal-char">, 아</span><span className="highlight-char">기</span>
+         </h1>
+         <p className="subtitle">우리 가족 아기 성장 기록</p>
++
++        {/* 로그인 정보 + 로그아웃 버튼 */}
++        {onLogout && (
++          <div className="logout-bar">
++            <span className="logout-user">
++              {loginMom && loginDad ? `${loginMom} · ${loginDad}` : "가족"}
++            </span>
++            {!showLogoutConfirm ? (
++              <button className="logout-btn" onClick={() => setShowLogoutConfirm(true)}>
++                로그아웃
++              </button>
++            ) : (
++              <span className="logout-confirm-wrap">
++                <span className="logout-confirm-text">정말요?</span>
++                <button className="logout-confirm-yes" onClick={onLogout}>예</button>
++                <button className="logout-confirm-no" onClick={() => setShowLogoutConfirm(false)}>아니오</button>
++              </span>
++            )}
++          </div>
++        )}
+       </div>
+ 
++      {/* 동기화 상태 */}
+       {!isFirebaseConfigured && (
+         <div className="sync-notice w-full max-w-md mb-4">
+           <span>☁️</span><span>Firebase 설정 후 가족 간 데이터 공유가 가능해요!</span>
+@@ -169,6 +202,7 @@ export default function Home() {
+         <div className="sync-error w-full max-w-md mb-4"><span>⚠️ 동기화 실패. 인터넷을 확인해주세요.</span></div>
+       )}
+ 
++      {/* 아기 탭 */}
+       <div className="baby-tabs-wrap w-full max-w-md mb-4">
+         <div className="baby-tabs">
+           {babies.map((b, idx) => (
+@@ -187,9 +221,10 @@ export default function Home() {
+         </div>
+       </div>
+ 
++      {/* 가족 정보 입력 폼 */}
+       {activeBaby && (
+         <div className="card w-full max-w-md mb-8">
+-          <h2 className="card-title mb-6">가족 정보 입력</h2>
++          <h2 className="card-title mb-6">가족 정보</h2>
+ 
+           <div className="field-group">
+             <label className="field-label"><span className="label-icon">👩</span> 엄마 이름</label>
+@@ -203,16 +238,18 @@ export default function Home() {
+               value={activeBaby.dadName} onChange={e => handleChange("dadName", e.target.value)} />
+           </div>
+ 
++          {/* 아기 이름 */}
+           <div className="field-group">
+             <label className="field-label"><span className="label-icon">👶</span> 아기 이름</label>
+             <input className="field-input" type="text" placeholder="아기 이름을 입력하세요"
+               value={activeBaby.babyName} onChange={e => handleChange("babyName", e.target.value)} />
+           </div>
+ 
++          {/* 태명 — 아기 이름 바로 아래 */}
+           <div className="field-group">
+             <label className="field-label">
+               <span className="label-icon">🌸</span> 태명
+-              <span className="field-hint"> (선택) — 이름(태명) 형태로 표시됩니다</span>
++              <span className="field-hint"> (선택)</span>
+             </label>
+             <input className="field-input" type="text" placeholder="태명을 입력하세요 (예: 복덩이)"
+               value={activeBaby.nickname} onChange={e => handleChange("nickname", e.target.value)} />
+@@ -223,10 +260,11 @@ export default function Home() {
+             )}
+           </div>
+ 
++          {/* 태어난 날(예정일) */}
+           <div className="field-group">
+             <label className="field-label">
+-              <span className="label-icon">🎂</span> 태어난(날) 날
+-              <span className="field-hint"> (과거·현재·미래 모두 가능)</span>
++              <span className="label-icon">🎂</span> 태어난 날(예정일)
++              <span className="field-hint"> (과거·미래 모두 가능)</span>
+             </label>
+             <input className="field-input" type="date" value={activeBaby.birthDate}
+               onChange={e => handleChange("birthDate", e.target.value)} />
+@@ -245,6 +283,7 @@ export default function Home() {
+         </div>
+       )}
+ 
++      {/* 성장 카운터 */}
+       {activeBaby?.birthDate && (
+         <div className="card w-full max-w-md day-card">
+           <div className="day-card-header">
+@@ -284,7 +323,7 @@ export default function Home() {
+       {!activeBaby?.birthDate && (
+         <div className="empty-hint">
+           <span>👆</span>
+-          <p>위에서 가족 정보와 아기 태어난(날) 날을 입력해 보세요!</p>
++          <p>위에서 가족 정보와 태어난 날(예정일)을 입력해 보세요!</p>
+         </div>
+       )}
+     </div>
+-- 
+2.34.1
+
+
+From 7de5f2ae9b5575c2f146e2c61cec406390fcb776 Mon Sep 17 00:00:00 2001
+From: chan <a22604443@gmail.com>
+Date: Mon, 20 Apr 2026 15:36:31 +0900
+Subject: [PATCH 3/4] =?UTF-8?q?fix:=20Dockerfile=20=EC=B6=94=EA=B0=80,=20N?=
+ =?UTF-8?q?IXPACKS=E2=86=92DOCKERFILE=20=EB=B9=8C=EB=93=9C=20=EB=B0=A9?=
+ =?UTF-8?q?=EC=8B=9D=20=EB=B3=80=EA=B2=BD=20(pnpm=20PATH=20=EC=98=A4?=
+ =?UTF-8?q?=EB=A5=98=20=ED=95=B4=EA=B2=B0)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ Dockerfile   | 33 +++++++++++++++++++++++++++++++++
+ railway.json |  8 ++++----
+ 2 files changed, 37 insertions(+), 4 deletions(-)
+ create mode 100755 Dockerfile
+
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100755
+index 0000000..f131bec
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,33 @@
++# ================================================================
++# 마빠기 앱 Railway 배포용 Dockerfile
++# ================================================================
++
++# Node.js 20 (LTS) 사용 - Debian 기반 (안정적)
++FROM node:20-slim
++
++WORKDIR /app
++
++# ── pnpm 설치 ────────────────────────────────────────────────────
++# corepack은 Node.js 20에 기본 포함 → pnpm을 PATH에 자동 등록
++RUN corepack enable && corepack prepare pnpm@9 --activate
++
++# ── 소스 코드 복사 ───────────────────────────────────────────────
++COPY . .
++
++# ── 의존성 설치 ──────────────────────────────────────────────────
++# --ignore-scripts     : Replit 전용 postinstall 스크립트 오류 방지
++# --frozen-lockfile=false : lockfile 버전 불일치 허용
++# --config.minimumReleaseAge=0 : pnpm-workspace.yaml의 1440분 대기 규칙 무력화
++RUN pnpm install \
++      --frozen-lockfile=false \
++      --ignore-scripts \
++      --config.minimumReleaseAge=0
++
++# ── 마빠기 앱 빌드 ───────────────────────────────────────────────
++# NODE_OPTIONS: 빌드 중 메모리 부족 방지 (1GB 제한)
++RUN NODE_OPTIONS="--max-old-space-size=1024" \
++    pnpm --filter @workspace/mapagi run build:railway
++
++# ── 서버 실행 ────────────────────────────────────────────────────
++EXPOSE $PORT
++CMD ["node", "server.js"]
+diff --git a/railway.json b/railway.json
+index 9a0edb6..48287ac 100644
+--- a/railway.json
++++ b/railway.json
+@@ -1,13 +1,13 @@
+ {
+   "$schema": "https://railway.app/railway.schema.json",
+   "build": {
+-    "builder": "NIXPACKS"
++    "builder": "DOCKERFILE",
++    "dockerfilePath": "Dockerfile"
+   },
+   "deploy": {
+-    "startCommand": "node server.js",
+     "healthcheckPath": "/health",
+-    "healthcheckTimeout": 60,
++    "healthcheckTimeout": 120,
+     "restartPolicyType": "ON_FAILURE",
+-    "restartPolicyMaxRetries": 10
++    "restartPolicyMaxRetries": 5
+   }
+ }
+-- 
+2.34.1
+
+
+From 31ef52e246968468cb620ef1b7895305b8241be4 Mon Sep 17 00:00:00 2001
+From: chan <a22604443@gmail.com>
+Date: Mon, 20 Apr 2026 17:15:36 +0900
+Subject: [PATCH 4/4] =?UTF-8?q?fix:=20railway.json/nixpacks.toml=20?=
+ =?UTF-8?q?=EC=9B=90=EB=B3=B5=20(NIXPACKS=20=EB=B0=A9=EC=8B=9D=20=EC=9C=A0?=
+ =?UTF-8?q?=EC=A7=80)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ Dockerfile   | 33 ---------------------------------
+ railway.json |  8 ++++----
+ 2 files changed, 4 insertions(+), 37 deletions(-)
+ delete mode 100755 Dockerfile
+
+diff --git a/Dockerfile b/Dockerfile
+deleted file mode 100755
+index f131bec..0000000
+--- a/Dockerfile
++++ /dev/null
+@@ -1,33 +0,0 @@
+-# ================================================================
+-# 마빠기 앱 Railway 배포용 Dockerfile
+-# ================================================================
+-
+-# Node.js 20 (LTS) 사용 - Debian 기반 (안정적)
+-FROM node:20-slim
+-
+-WORKDIR /app
+-
+-# ── pnpm 설치 ────────────────────────────────────────────────────
+-# corepack은 Node.js 20에 기본 포함 → pnpm을 PATH에 자동 등록
+-RUN corepack enable && corepack prepare pnpm@9 --activate
+-
+-# ── 소스 코드 복사 ───────────────────────────────────────────────
+-COPY . .
+-
+-# ── 의존성 설치 ──────────────────────────────────────────────────
+-# --ignore-scripts     : Replit 전용 postinstall 스크립트 오류 방지
+-# --frozen-lockfile=false : lockfile 버전 불일치 허용
+-# --config.minimumReleaseAge=0 : pnpm-workspace.yaml의 1440분 대기 규칙 무력화
+-RUN pnpm install \
+-      --frozen-lockfile=false \
+-      --ignore-scripts \
+-      --config.minimumReleaseAge=0
+-
+-# ── 마빠기 앱 빌드 ───────────────────────────────────────────────
+-# NODE_OPTIONS: 빌드 중 메모리 부족 방지 (1GB 제한)
+-RUN NODE_OPTIONS="--max-old-space-size=1024" \
+-    pnpm --filter @workspace/mapagi run build:railway
+-
+-# ── 서버 실행 ────────────────────────────────────────────────────
+-EXPOSE $PORT
+-CMD ["node", "server.js"]
+diff --git a/railway.json b/railway.json
+index 48287ac..9a0edb6 100644
+--- a/railway.json
++++ b/railway.json
+@@ -1,13 +1,13 @@
+ {
+   "$schema": "https://railway.app/railway.schema.json",
+   "build": {
+-    "builder": "DOCKERFILE",
+-    "dockerfilePath": "Dockerfile"
++    "builder": "NIXPACKS"
+   },
+   "deploy": {
++    "startCommand": "node server.js",
+     "healthcheckPath": "/health",
+-    "healthcheckTimeout": 120,
++    "healthcheckTimeout": 60,
+     "restartPolicyType": "ON_FAILURE",
+-    "restartPolicyMaxRetries": 5
++    "restartPolicyMaxRetries": 10
+   }
+ }
+-- 
+2.34.1
+
