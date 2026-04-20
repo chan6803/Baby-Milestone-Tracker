@@ -1,11 +1,12 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "pnpm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
-# --ignore-scripts: Replit 전용 postinstall 스크립트 오류 방지
-# --frozen-lockfile=false: lockfile 불일치 허용
-# --config.minimumReleaseAge=0: pnpm-workspace의 1440분 대기 규칙을 Railway에서 무력화
-cmds = ["pnpm install --frozen-lockfile=false --ignore-scripts --config.minimumReleaseAge=0"]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@9 --activate",
+  "pnpm install --frozen-lockfile=false --ignore-scripts --config.minimumReleaseAge=0"
+]
 
 [phases.build]
 cmds = ["pnpm --filter @workspace/mapagi run build:railway"]
