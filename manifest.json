@@ -1,0 +1,47 @@
+{
+  "background_color": "#ffffff",
+  "dir": "auto",
+  "display": "fullscreen",
+  "name": "baby-milestone-tracker-production.up.railway",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "short_name": "마빠기",
+  "start_url": "/https://baby-milestone-tracker-production.up.railway.app",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://baby-milestone-tracker-production.up.railway.app/favicon.svg",
+      "type": "image/svg+xml",
+      "isSquare": false,
+      "isPng": false,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 0,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
+    },
+    {
+      "src": "https://baby-milestone-tracker-production.up.railway.app/favicon.ico",
+      "type": "image/x-icon",
+      "isSquare": false,
+      "isPng": false,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 0,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
+    }
+  ],
+  "id": "MAPAGI",
+  "description": "임신, 출산, 육아에 대한 모든 것",
+  "lang": "ko",
+  "categories": [
+    "education",
+    "health",
+    "kids",
+    "lifestyle",
+    "medical"
+  ]
+}
