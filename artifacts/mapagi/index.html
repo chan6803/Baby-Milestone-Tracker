@@ -1,13 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>엄마, 아빠, 그리고 아기</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- 앱 기본 정보 -->
+    <title>마빠기 - 우리 가족 아기 성장 기록</title>
+    <meta name="description" content="엄마, 아빠, 아기의 소중한 성장 기록 앱" />
+    <meta name="theme-color" content="#e8457a" />
+
+    <!-- PWA 매니페스트 (필수) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- iOS 홈 화면 추가 지원 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="마빠기" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- 파비콘 -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+
+    <!-- Open Graph (카카오톡 등 공유 시 미리보기) -->
+    <meta property="og:title" content="마빠기 - 우리 가족 아기 성장 기록" />
+    <meta property="og:description" content="엄마, 아빠, 아기의 소중한 성장 기록 앱" />
+    <meta property="og:type" content="website" />
+
+    <!-- 구글 폰트 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
