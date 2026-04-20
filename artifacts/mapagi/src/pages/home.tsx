@@ -7,7 +7,7 @@ export interface BabyProfile {
   momName: string;
   dadName: string;
   babyName: string;
-  nickname: string;
+  nickname: string;   // 태명 (선택)
   birthDate: string;
 }
 
@@ -38,6 +38,7 @@ export function getActiveBaby(): BabyProfile | null {
   } catch { return null; }
 }
 
+// 아기 이름(태명) 형식으로 표시
 export function getBabyDisplayName(baby: BabyProfile | null): string {
   if (!baby) return "아기";
   if (baby.babyName && baby.nickname) return `${baby.babyName}(${baby.nickname})`;
@@ -78,15 +79,20 @@ function formatDate(d: string): string {
 
 const ORDINAL = ["첫째","둘째","셋째","넷째","다섯째"];
 
-export default function Home() {
-  const [babies, setBabies] = useState<BabyProfile[]>(loadBabies);
+interface HomeProps {
+  onLogout?: () => void;
+}
+
+export default function Home({ onLogout }: HomeProps = {}) {
+  const [babies, setBabies]   = useState<BabyProfile[]>(loadBabies);
   const [activeId, setActiveId] = useState<string>(
     () => localStorage.getItem("mapagi-active-baby") || loadBabies()[0]?.id || ""
   );
-  const [saved, setSaved] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [syncing, setSyncing]     = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle"|"synced"|"error">("idle");
-  const [today, setToday] = useState(new Date());
+  const [today, setToday]         = useState(new Date());
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setToday(new Date()), 60000);
@@ -139,24 +145,51 @@ export default function Home() {
     setActiveId(na); localStorage.setItem("mapagi-active-baby", na);
   }
 
-  const days = activeBaby ? getDaysSinceBirth(activeBaby.birthDate) : null;
+  const days      = activeBaby ? getDaysSinceBirth(activeBaby.birthDate) : null;
   const daysUntil = activeBaby ? getDaysUntilBirth(activeBaby.birthDate) : null;
-  const isFuture = daysUntil !== null;
-  const pregWeek = daysUntil ? Math.max(0, 40 - Math.ceil(daysUntil / 7)) : null;
-  const todayStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
+  const isFuture  = daysUntil !== null;
+  const pregWeek  = daysUntil ? Math.max(0, 40 - Math.ceil(daysUntil / 7)) : null;
+  const todayStr  = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
   const displayName = getBabyDisplayName(activeBaby || null);
+
+  // 로그인된 가족 이름 (헤더 표시용)
+  const loginMom  = localStorage.getItem("mapagi-login-mom") || activeBaby?.momName || "";
+  const loginDad  = localStorage.getItem("mapagi-login-dad") || activeBaby?.dadName || "";
 
   return (
     <div className="min-h-screen app-bg flex flex-col items-center py-10 px-4">
-      <div className="title-section mb-10 text-center">
+
+      {/* 타이틀 + 로그아웃 */}
+      <div className="title-section mb-6 text-center w-full max-w-md relative">
         <h1 className="main-title">
           <span className="normal-char">엄</span><span className="highlight-char">마</span>
           <span className="normal-char">, 아</span><span className="highlight-char">빠</span>
           <span className="normal-char">, 아</span><span className="highlight-char">기</span>
         </h1>
         <p className="subtitle">우리 가족 아기 성장 기록</p>
+
+        {/* 로그인 정보 + 로그아웃 버튼 */}
+        {onLogout && (
+          <div className="logout-bar">
+            <span className="logout-user">
+              {loginMom && loginDad ? `${loginMom} · ${loginDad}` : "가족"}
+            </span>
+            {!showLogoutConfirm ? (
+              <button className="logout-btn" onClick={() => setShowLogoutConfirm(true)}>
+                로그아웃
+              </button>
+            ) : (
+              <span className="logout-confirm-wrap">
+                <span className="logout-confirm-text">정말요?</span>
+                <button className="logout-confirm-yes" onClick={onLogout}>예</button>
+                <button className="logout-confirm-no" onClick={() => setShowLogoutConfirm(false)}>아니오</button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* 동기화 상태 */}
       {!isFirebaseConfigured && (
         <div className="sync-notice w-full max-w-md mb-4">
           <span>☁️</span><span>Firebase 설정 후 가족 간 데이터 공유가 가능해요!</span>
@@ -169,6 +202,7 @@ export default function Home() {
         <div className="sync-error w-full max-w-md mb-4"><span>⚠️ 동기화 실패. 인터넷을 확인해주세요.</span></div>
       )}
 
+      {/* 아기 탭 */}
       <div className="baby-tabs-wrap w-full max-w-md mb-4">
         <div className="baby-tabs">
           {babies.map((b, idx) => (
@@ -187,9 +221,10 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 가족 정보 입력 폼 */}
       {activeBaby && (
         <div className="card w-full max-w-md mb-8">
-          <h2 className="card-title mb-6">가족 정보 입력</h2>
+          <h2 className="card-title mb-6">가족 정보</h2>
 
           <div className="field-group">
             <label className="field-label"><span className="label-icon">👩</span> 엄마 이름</label>
@@ -203,16 +238,18 @@ export default function Home() {
               value={activeBaby.dadName} onChange={e => handleChange("dadName", e.target.value)} />
           </div>
 
+          {/* 아기 이름 */}
           <div className="field-group">
             <label className="field-label"><span className="label-icon">👶</span> 아기 이름</label>
             <input className="field-input" type="text" placeholder="아기 이름을 입력하세요"
               value={activeBaby.babyName} onChange={e => handleChange("babyName", e.target.value)} />
           </div>
 
+          {/* 태명 — 아기 이름 바로 아래 */}
           <div className="field-group">
             <label className="field-label">
               <span className="label-icon">🌸</span> 태명
-              <span className="field-hint"> (선택) — 이름(태명) 형태로 표시됩니다</span>
+              <span className="field-hint"> (선택)</span>
             </label>
             <input className="field-input" type="text" placeholder="태명을 입력하세요 (예: 복덩이)"
               value={activeBaby.nickname} onChange={e => handleChange("nickname", e.target.value)} />
@@ -223,10 +260,11 @@ export default function Home() {
             )}
           </div>
 
+          {/* 태어난 날(예정일) */}
           <div className="field-group">
             <label className="field-label">
-              <span className="label-icon">🎂</span> 태어난(날) 날
-              <span className="field-hint"> (과거·현재·미래 모두 가능)</span>
+              <span className="label-icon">🎂</span> 태어난 날(예정일)
+              <span className="field-hint"> (과거·미래 모두 가능)</span>
             </label>
             <input className="field-input" type="date" value={activeBaby.birthDate}
               onChange={e => handleChange("birthDate", e.target.value)} />
@@ -245,6 +283,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* 성장 카운터 */}
       {activeBaby?.birthDate && (
         <div className="card w-full max-w-md day-card">
           <div className="day-card-header">
@@ -284,7 +323,7 @@ export default function Home() {
       {!activeBaby?.birthDate && (
         <div className="empty-hint">
           <span>👆</span>
-          <p>위에서 가족 정보와 아기 태어난(날) 날을 입력해 보세요!</p>
+          <p>위에서 가족 정보와 태어난 날(예정일)을 입력해 보세요!</p>
         </div>
       )}
     </div>

@@ -2278,3 +2278,142 @@
   margin-top: 0.35rem; font-size: 0.82rem; color: #a070b0;
 }
 .nickname-preview strong { color: #e8457a; }
+
+/* =====================
+   로그인 화면
+   ===================== */
+.login-screen {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fff0f5 0%, #f5f0ff 50%, #f0f7ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+.login-inner {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+.login-title-wrap {
+  text-align: center;
+}
+.login-emoji {
+  font-size: 3rem;
+  margin-bottom: 0.4rem;
+  animation: bounce 1.6s infinite;
+}
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.login-title {
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.login-title-soft  { color: #9b6db5; font-weight: 700; }
+.login-title-pink  {
+  color: #e8457a;
+  font-size: 1.25em;
+  font-weight: 900;
+  text-shadow: 0 2px 12px rgba(232,69,122,0.35);
+}
+.login-subtitle {
+  margin-top: 0.4rem;
+  font-size: 1rem;
+  color: #a07ab0;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.login-card {
+  width: 100%;
+  background: white;
+  border-radius: 1.5rem;
+  padding: 2rem 1.75rem;
+  box-shadow: 0 8px 32px rgba(180,80,180,0.15), 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid rgba(220,160,220,0.25);
+}
+.login-desc {
+  font-size: 0.88rem;
+  color: #7a5090;
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+  background: rgba(200,112,224,0.07);
+  border-radius: 0.7rem;
+  padding: 0.75rem 0.9rem;
+}
+.login-notice {
+  font-size: 0.8rem;
+  color: #a07040;
+  background: #fff9f0;
+  border: 1px solid rgba(220,160,60,0.25);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 1rem;
+}
+.login-error {
+  color: #d04040;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #fff5f5;
+  border: 1px solid rgba(208,64,64,0.2);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.75rem;
+}
+.login-tip {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: #b090c0;
+  line-height: 1.6;
+}
+
+/* =====================
+   홈 로그아웃 바
+   ===================== */
+.logout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.logout-user {
+  font-size: 0.82rem;
+  color: #a070b0;
+  font-weight: 600;
+}
+.logout-btn {
+  font-size: 0.78rem;
+  color: #c060a0;
+  background: rgba(220,100,180,0.08);
+  border: 1px solid rgba(220,100,180,0.25);
+  border-radius: 1rem;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover { background: rgba(220,100,180,0.15); }
+.logout-confirm-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.logout-confirm-text { font-size: 0.82rem; color: #c06080; font-weight: 600; }
+.logout-confirm-yes {
+  font-size: 0.78rem; color: white;
+  background: #e8457a; border: none;
+  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
+}
+.logout-confirm-no {
+  font-size: 0.78rem; color: #7a5090;
+  background: rgba(120,80,160,0.1); border: none;
+  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
+}

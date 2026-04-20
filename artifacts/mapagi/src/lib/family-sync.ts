@@ -12,7 +12,7 @@ import {
 } from "firebase/storage";
 import { db, storage, isFirebaseConfigured } from "./firebase";
 
-// 가족 고유 ID 생성 (이름 3개를 조합해 해시)
+// ── 가족 고유 ID 생성 (이름 3개를 조합해 해시) ────────────────────
 export async function getFamilyId(momName: string, dadName: string, babyName: string): Promise<string> {
   const text = [momName, dadName, babyName]
     .map(s => s.trim().toLowerCase())
@@ -21,6 +21,17 @@ export async function getFamilyId(momName: string, dadName: string, babyName: st
   const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
+}
+
+// ── 기존 가족 데이터 불러오기 (로그인 시 사용) ────────────────────
+export async function loadFamilyData(familyId: string): Promise<DocumentData | null> {
+  if (!isFirebaseConfigured || !db) return null;
+  try {
+    const snap = await getDoc(doc(db, "families", familyId, "info", "main"));
+    return snap.exists() ? snap.data() : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── 가족/아기 정보 저장 ──────────────────────────────────────────
