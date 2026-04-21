@@ -283,6 +283,11 @@
   background: linear-gradient(135deg, #50c878, #20a060);
   box-shadow: 0 4px 14px rgba(80, 200, 120, 0.35);
 }
+.save-btn.logged-in-btn {
+  background: linear-gradient(135deg, #60a8e0, #4080c0);
+  box-shadow: 0 4px 14px rgba(80, 140, 200, 0.3);
+  opacity: 0.9;
+}
 
 /* Day counter card */
 .day-card {
@@ -2363,57 +2368,4 @@
   background: #fff5f5;
   border: 1px solid rgba(208,64,64,0.2);
   border-radius: 0.6rem;
-  padding: 0.5rem 0.8rem;
-  margin-bottom: 0.75rem;
-}
-.login-tip {
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: #b090c0;
-  line-height: 1.6;
-}
-
-/* =====================
-   홈 로그아웃 바
-   ===================== */
-.logout-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-}
-.logout-user {
-  font-size: 0.82rem;
-  color: #a070b0;
-  font-weight: 600;
-}
-.logout-btn {
-  font-size: 0.78rem;
-  color: #c060a0;
-  background: rgba(220,100,180,0.08);
-  border: 1px solid rgba(220,100,180,0.25);
-  border-radius: 1rem;
-  padding: 0.2rem 0.7rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.logout-btn:hover { background: rgba(220,100,180,0.15); }
-.logout-confirm-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.logout-confirm-text { font-size: 0.82rem; color: #c06080; font-weight: 600; }
-.logout-confirm-yes {
-  font-size: 0.78rem; color: white;
-  background: #e8457a; border: none;
-  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
-}
-.logout-confirm-no {
-  font-size: 0.78rem; color: #7a5090;
-  background: rgba(120,80,160,0.1); border: none;
-  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
-}
+  padding: 0.5rem 0.8re

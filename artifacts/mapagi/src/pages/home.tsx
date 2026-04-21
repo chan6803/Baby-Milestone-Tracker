@@ -89,8 +89,10 @@ export default function Home({ onLogout }: HomeProps = {}) {
     () => localStorage.getItem("mapagi-active-baby") || loadBabies()[0]?.id || ""
   );
   const [saved, setSaved]         = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const [syncing, setSyncing]     = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle"|"synced"|"error">("idle");
+  const isLoggedIn = !!localStorage.getItem("mapagi-family-id");
   const [today, setToday]         = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -110,12 +112,14 @@ export default function Home({ onLogout }: HomeProps = {}) {
   function handleChange(field: keyof BabyProfile, value: string) {
     setBabies(prev => prev.map(b => b.id === activeBaby?.id ? {...b, [field]: value} : b));
     setSaved(false);
+    setHasChanges(true);
   }
 
   async function handleSave() {
     saveBabies(babies);
     if (activeBaby) localStorage.setItem("mapagi-family", JSON.stringify(activeBaby));
     setSaved(true);
+    setHasChanges(false);
     setTimeout(() => setSaved(false), 2000);
 
     if (isFirebaseConfigured && activeBaby?.momName && activeBaby?.dadName && activeBaby?.babyName) {
@@ -277,8 +281,15 @@ export default function Home({ onLogout }: HomeProps = {}) {
             </div>
           )}
 
-          <button className={`save-btn ${saved ? "saved" : ""}`} onClick={handleSave} disabled={syncing}>
-            {syncing ? "⏳ 동기화 중..." : saved ? "✓ 저장되었습니다!" : "저장하기"}
+          <button
+            className={`save-btn ${saved ? "saved" : ""} ${isLoggedIn && !hasChanges && !saved ? "logged-in-btn" : ""}`}
+            onClick={handleSave}
+            disabled={syncing}
+          >
+            {syncing ? "⏳ 동기화 중..."
+              : saved ? "✓ 저장되었습니다!"
+              : isLoggedIn && !hasChanges ? "✓ 로그인 되었습니다"
+              : "저장하기"}
           </button>
         </div>
       )}
