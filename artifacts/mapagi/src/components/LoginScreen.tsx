@@ -8,6 +8,7 @@ import { useState } from "react";
 import { getFamilyId, loadFamilyData, syncFamilyInfo } from "@/lib/family-sync";
 import { isFirebaseConfigured, authReady } from "@/lib/firebase";
 import type { BabyProfile } from "@/pages/home";
+import ScrollDatePicker from "@/components/ScrollDatePicker";
 
 interface Props {
   onLogin: (familyId: string, babies: BabyProfile[] | null) => void;
@@ -172,12 +173,12 @@ export default function LoginScreen({ onLogin }: Props) {
               <span className="label-icon">🎂</span> 태어난 날(예정일)
               <span className="field-hint"> (선택)</span>
             </label>
-            <input
-              className="field-input"
-              type="date"
-              value={birthDate}
-              onChange={e => setBirthDate(e.target.value)}
-            />
+            <ScrollDatePicker value={birthDate} onChange={setBirthDate} />
+            {birthDate && (
+              <div className="sdp-display-val">
+                {birthDate.slice(0,4)}년 {parseInt(birthDate.slice(5,7))}월 {parseInt(birthDate.slice(8,10))}일 선택됨
+              </div>
+            )}
           </div>
 
           {error && (

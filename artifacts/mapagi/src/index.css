@@ -2510,3 +2510,91 @@
 /* daily-tabs 4개 탭 대응 */
 .daily-tabs { gap: 0.25rem; }
 .daily-tabs .dtab { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+
+/* =====================================================
+   ScrollDatePicker — iOS 드럼롤 스타일
+   ===================================================== */
+.sdp-wrap {
+  position: relative;
+  width: 100%;
+  height: 230px;         /* ITEM_H(46) * VISIBLE(5) */
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #fdf0f7;
+  border: 1px solid rgba(220,140,200,0.25);
+}
+.sdp-cols {
+  display: flex;
+  height: 100%;
+}
+.sdp-col {
+  flex: 1;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.sdp-col::-webkit-scrollbar { display: none; }
+
+.sdp-item {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #c090c8;
+  scroll-snap-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s, font-size 0.15s, font-weight 0.15s;
+}
+.sdp-sel {
+  color: #c84090 !important;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+/* 선택 영역 가이드 라인 */
+.sdp-selector {
+  position: absolute;
+  top: 50%;
+  left: 6px; right: 6px;
+  height: 46px;
+  transform: translateY(-50%);
+  border-top: 1.5px solid rgba(200,60,140,0.35);
+  border-bottom: 1.5px solid rgba(200,60,140,0.35);
+  border-radius: 0.4rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 위아래 그라데이션 페이드 */
+.sdp-fade {
+  position: absolute;
+  left: 0; right: 0;
+  height: 92px;   /* 2 * 46px */
+  pointer-events: none;
+  z-index: 1;
+}
+.sdp-fade-top {
+  top: 0;
+  background: linear-gradient(to bottom,
+    rgba(253,240,247,0.95) 0%,
+    rgba(253,240,247,0.4)  100%);
+}
+.sdp-fade-bot {
+  bottom: 0;
+  background: linear-gradient(to top,
+    rgba(253,240,247,0.95) 0%,
+    rgba(253,240,247,0.4)  100%);
+}
+
+/* 선택된 날짜 텍스트 표시 */
+.sdp-display-val {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: #a060b0;
+  text-align: center;
+  font-weight: 500;
+}

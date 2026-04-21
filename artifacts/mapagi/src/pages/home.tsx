@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { getFamilyId, syncFamilyInfo } from "@/lib/family-sync";
+import ScrollDatePicker from "@/components/ScrollDatePicker";
 
 export interface BabyProfile {
   id: string;
@@ -270,8 +271,15 @@ export default function Home({ onLogout }: HomeProps = {}) {
               <span className="label-icon">🎂</span> 태어난 날(예정일)
               <span className="field-hint"> (과거·미래 모두 가능)</span>
             </label>
-            <input className="field-input" type="date" value={activeBaby.birthDate}
-              onChange={e => handleChange("birthDate", e.target.value)} />
+            <ScrollDatePicker
+              value={activeBaby.birthDate}
+              onChange={v => handleChange("birthDate", v)}
+            />
+            {activeBaby.birthDate && (
+              <div className="sdp-display-val">
+                {activeBaby.birthDate.slice(0,4)}년 {parseInt(activeBaby.birthDate.slice(5,7))}월 {parseInt(activeBaby.birthDate.slice(8,10))}일 선택됨
+              </div>
+            )}
           </div>
 
           {isFirebaseConfigured && (

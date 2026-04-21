@@ -43,6 +43,9 @@ function AppContent() {
   const [loggedIn, setLoggedIn]   = useState<boolean>(isLoggedIn);
   const [page, setPage]           = useState<Page>("home");
   const [future, setFuture]       = useState<boolean>(isFutureBirthDate);
+  // sessionKey가 바뀌면 모든 페이지 컴포넌트가 언마운트 → 재마운트되어
+  // useState 초기값이 최신 localStorage에서 새로 읽힘 (stale 상태 제거)
+  const [sessionKey, setSessionKey] = useState(0);
 
   useEffect(() => {
     const check = () => setFuture(isFutureBirthDate());
@@ -59,16 +62,31 @@ function AppContent() {
     }
     setLoggedIn(true);
     setPage("daily");
+    // sessionKey 증가 → 모든 페이지 컴포넌트 강제 재마운트
+    setSessionKey(k => k + 1);
   }
 
-  // 로그아웃 처리
+  // 로그아웃 처리: 모든 앱 데이터를 localStorage에서 제거 후 재로그인 시 Firebase에서 새로 로드
   function handleLogout() {
-    const keys = [
+    // 로그인 관련 키
+    const loginKeys = [
       "mapagi-family-id", "mapagi-login-mom", "mapagi-login-dad",
       "mapagi-login-baby", "mapagi-babies", "mapagi-active-baby", "mapagi-family",
     ];
-    keys.forEach(k => localStorage.removeItem(k));
+    loginKeys.forEach(k => localStorage.removeItem(k));
+
+    // 날짜별 육아일지 캐시 제거 (재로그인 후 Firebase에서 새로 로드)
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("mapagi-daily-") || k === "mapagi-gallery" || k === "mapagi-vaccines")) {
+        toRemove.push(k);
+      }
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+
     setLoggedIn(false);
+    setSessionKey(k => k + 1);
   }
 
   // 로그인 전이면 로그인 화면만 보여줌
@@ -89,7 +107,8 @@ function AppContent() {
 
   return (
     <div className="app-root">
-      <div className="app-content">
+      {/* key={sessionKey}: 로그인/로그아웃 시 모든 페이지 컴포넌트를 완전히 재마운트 */}
+      <div className="app-content" key={sessionKey}>
         {page === "home"       && <Home onLogout={handleLogout} />}
         {page === "vaccine"    && <VaccinePage />}
         {page === "pregnancy"  && <PregnancyPage />}
