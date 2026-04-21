@@ -5,12 +5,29 @@
 
 import {
   doc, setDoc, getDoc, onSnapshot, collection,
+  query, orderBy, deleteDoc,
   Unsubscribe, DocumentData
 } from "firebase/firestore";
 import {
   ref, uploadString, getDownloadURL, deleteObject
 } from "firebase/storage";
 import { db, storage, isFirebaseConfigured } from "./firebase";
+
+// ── localStorage 헬퍼 ─────────────────────────────────────────────
+export function getLocalFamilyId(): string {
+  return localStorage.getItem("mapagi-family-id") || "";
+}
+
+export function getLocalBabyId(): string {
+  try {
+    const babies = JSON.parse(localStorage.getItem("mapagi-babies") || "[]");
+    const activeId = localStorage.getItem("mapagi-active-baby");
+    const baby = babies.find((b: any) => b.id === activeId) || babies[0];
+    return baby?.id || "";
+  } catch {
+    return "";
+  }
+}
 
 // ── 가족 고유 ID 생성 (이름 3개를 조합해 해시) ────────────────────
 export async function getFamilyId(momName: string, dadName: string, babyName: string): Promise<string> {
@@ -47,7 +64,7 @@ export function listenFamilyInfo(familyId: string, callback: (data: DocumentData
   });
 }
 
-// ── 오늘의 기록 저장 ────────────────────────────────────────────
+// ── 오늘의 기록 저장/구독 ─────────────────────────────────────────
 export async function syncDailyRecord(familyId: string, babyId: string, date: string, data: DocumentData) {
   if (!isFirebaseConfigured || !db) return;
   await setDoc(doc(db, "families", familyId, "babies", babyId, "daily", date), data, { merge: true });
@@ -66,7 +83,45 @@ export function listenDailyRecord(
   );
 }
 
-// ── 사진 업로드 ─────────────────────────────────────────────────
+// ── 예방접종 기록 저장/삭제/구독 ──────────────────────────────────
+export async function syncVaccineRecord(
+  familyId: string,
+  babyId: string,
+  vaccineId: string,
+  data: DocumentData
+) {
+  if (!isFirebaseConfigured || !db) return;
+  await setDoc(
+    doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId),
+    data,
+    { merge: true }
+  );
+}
+
+export async function clearVaccineRecord(familyId: string, babyId: string, vaccineId: string) {
+  if (!isFirebaseConfigured || !db) return;
+  try {
+    await deleteDoc(doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId));
+  } catch {}
+}
+
+export function listenVaccineRecords(
+  familyId: string,
+  babyId: string,
+  callback: (records: Record<string, DocumentData>) => void
+): Unsubscribe {
+  if (!isFirebaseConfigured || !db) return () => {};
+  return onSnapshot(
+    collection(db, "families", familyId, "babies", babyId, "vaccines"),
+    snap => {
+      const records: Record<string, DocumentData> = {};
+      snap.docs.forEach(d => { records[d.id] = d.data(); });
+      callback(records);
+    }
+  );
+}
+
+// ── 사진 업로드/삭제 ──────────────────────────────────────────────
 export async function uploadPhoto(
   familyId: string,
   photoId: string,
@@ -79,22 +134,25 @@ export async function uploadPhoto(
   return await getDownloadURL(storageRef);
 }
 
-export async function deletePhoto(familyId: string, photoId: string) {
+// deletePhotoFromStorage: gallery.tsx에서 사용
+export async function deletePhotoFromStorage(familyId: string, photoId: string) {
   if (!isFirebaseConfigured || !storage) return;
   try {
     await deleteObject(ref(storage, `families/${familyId}/photos/${photoId}`));
   } catch {}
 }
 
-// ── 사진 메타데이터 저장/구독 ───────────────────────────────────
+// 이전 이름 호환성 유지
+export const deletePhoto = deletePhotoFromStorage;
+
+// ── 사진 메타데이터 저장/삭제/구독 ───────────────────────────────
 export async function savePhotoMeta(familyId: string, photoId: string, meta: DocumentData) {
   if (!isFirebaseConfigured || !db) return;
-  await setDoc(doc(db, "families", familyId, "photos", photoId), meta);
+  await setDoc(doc(db, "families", familyId, "photos", photoId), meta, { merge: true });
 }
 
 export async function deletePhotoMeta(familyId: string, photoId: string) {
   if (!isFirebaseConfigured || !db) return;
-  const { deleteDoc } = await import("firebase/firestore");
   await deleteDoc(doc(db, "families", familyId, "photos", photoId));
 }
 
@@ -103,9 +161,8 @@ export function listenPhotos(
   callback: (photos: DocumentData[]) => void
 ): Unsubscribe {
   if (!isFirebaseConfigured || !db) return () => {};
-  const { query, orderBy } = require("firebase/firestore");
   return onSnapshot(
-    collection(db, "families", familyId, "photos"),
+    query(collection(db, "families", familyId, "photos"), orderBy("createdAt", "desc")),
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   );
 }
