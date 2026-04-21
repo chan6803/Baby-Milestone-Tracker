@@ -2361,6 +2361,10 @@
   padding: 0.5rem 0.8rem;
   margin-bottom: 1rem;
 }
+
+/* =====================
+   로그인 화면 스타일
+   ===================== */
 .login-error {
   color: #d04040;
   font-size: 0.85rem;
@@ -2368,4 +2372,110 @@
   background: #fff5f5;
   border: 1px solid rgba(208,64,64,0.2);
   border-radius: 0.6rem;
-  padding: 0.5rem 0.8re
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.75rem;
+}
+.login-tip {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #a070b0;
+  margin-top: 0.75rem;
+  line-height: 1.6;
+}
+
+/* =====================
+   로그아웃 바
+   ===================== */
+.logout-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  justify-content: flex-end; margin-top: 0.4rem;
+}
+.logout-user {
+  font-size: 0.8rem; color: #9070a0; font-weight: 500;
+}
+.logout-btn {
+  font-size: 0.75rem; color: #c060a0;
+  background: rgba(200,80,160,0.08);
+  border: 1px solid rgba(200,80,160,0.2);
+  border-radius: 0.5rem; padding: 0.2rem 0.7rem; cursor: pointer;
+}
+.logout-btn:hover { background: rgba(200,80,160,0.15); }
+.logout-confirm-wrap {
+  display: flex; align-items: center; gap: 0.3rem;
+}
+.logout-confirm-text {
+  font-size: 0.8rem; color: #c04060; font-weight: 600;
+}
+.logout-confirm-yes {
+  font-size: 0.78rem; color: #fff;
+  background: #e04060; border: none;
+  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
+}
+.logout-confirm-no {
+  font-size: 0.78rem; color: #7a5090;
+  background: rgba(120,80,160,0.1); border: none;
+  border-radius: 0.5rem; padding: 0.2rem 0.6rem; cursor: pointer;
+}
+
+/* =====================
+   가족 동기화 배지
+   ===================== */
+.sync-badge {
+  display: inline-block;
+  margin-top: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(100,180,255,0.12);
+  border: 1px solid rgba(100,180,255,0.3);
+  font-size: 0.78rem;
+  color: #3070c0;
+  font-weight: 500;
+}
+
+/* =====================
+   기록 수정 버튼
+   ===================== */
+.record-edit {
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  color: #b090c0;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.record-edit:hover { color: #8050a0; }
+
+/* =====================
+   접종 기록 삭제 버튼 (modal)
+   ===================== */
+.btn-delete {
+  background: none;
+  border: 1px solid #e04060;
+  color: #e04060;
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-right: auto;
+}
+.btn-delete:hover { background: rgba(224,64,96,0.08); }
+
+/* =====================
+   접종 메모 인라인 표시
+   ===================== */
+.vdate-note {
+  font-size: 0.75rem;
+  color: #9070a0;
+  margin-left: 0.25rem;
+}
+
+/* =====================
+   로그인 완료 버튼 상태
+   ===================== */
+.save-btn.logged-in-btn {
+  background: linear-gradient(135deg, #60a8e0, #4080c0);
+  box-shadow: 0 4px 14px rgba(80, 140, 200, 0.3);
+  opacity: 0.9;
+}
