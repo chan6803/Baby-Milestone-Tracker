@@ -2479,3 +2479,34 @@
   box-shadow: 0 4px 14px rgba(80, 140, 200, 0.3);
   opacity: 0.9;
 }
+
+/* =====================
+   시간 + 지금 버튼 행
+   ===================== */
+.time-now-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.time-now-row input[type="time"] {
+  flex: 1;
+  min-width: 0;
+}
+.btn-now {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #c060a0;
+  background: rgba(200,80,160,0.08);
+  border: 1px solid rgba(200,80,160,0.25);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-now:hover { background: rgba(200,80,160,0.16); }
+
+/* daily-tabs 4개 탭 대응 */
+.daily-tabs { gap: 0.25rem; }
+.daily-tabs .dtab { padding: 0.5rem 0.6rem; font-size: 0.8rem; }

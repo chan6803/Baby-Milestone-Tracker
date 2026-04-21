@@ -6,8 +6,10 @@ import {
 } from "@/lib/family-sync";
 
 interface FeedingEntry {
-  id: string; time: string; amount: number;
-  type: "formula" | "breast" | "mixed"; note: string;
+  id: string; time: string; endTime?: string;
+  amount: number;
+  type: "formula" | "breast" | "mixed" | "weaning" | "snack";
+  note: string;
 }
 interface SleepEntry {
   id: string; startTime: string; endTime: string; note: string;
@@ -16,9 +18,15 @@ interface SpecialNote {
   id: string; time: string; content: string;
   category: "health" | "milestone" | "other";
 }
+interface GrowthEntry {
+  id: string; date: string;
+  height: number | ""; weight: number | "";
+  note: string;
+}
 interface DailyData {
   feedIntervalHours: number; feedIntervalMins: number;
   feedings: FeedingEntry[]; sleeps: SleepEntry[]; notes: SpecialNote[];
+  growths: GrowthEntry[];
   alarmEnabled: boolean; lastAlarmTime: string;
 }
 
@@ -94,7 +102,7 @@ const todayKey = () => new Date().toISOString().split("T")[0];
 
 const DEFAULT_DAILY: DailyData = {
   feedIntervalHours: 3, feedIntervalMins: 0,
-  feedings: [], sleeps: [], notes: [],
+  feedings: [], sleeps: [], notes: [], growths: [],
   alarmEnabled: false, lastAlarmTime: ""
 };
 
@@ -107,6 +115,7 @@ function loadToday(): DailyData {
         parsed.feedIntervalHours = Math.floor(parsed.feedInterval);
         parsed.feedIntervalMins  = Math.round((parsed.feedInterval % 1) * 60);
       }
+      if (!parsed.growths) parsed.growths = [];
       return parsed;
     }
   } catch {}
@@ -128,7 +137,7 @@ function addMinutes(time: string, totalMins: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2,"0")}:${String(total % 60).padStart(2,"0")}`;
 }
 
-function calcSleepDuration(start: string, end: string): string {
+function calcDuration(start: string, end: string): string {
   if (!start || !end) return "";
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
@@ -147,13 +156,21 @@ function getDaysSinceBirth(birthDate: string): number | null {
   return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
 }
 
-const FEED_TYPE_LABELS = { formula: "분유", breast: "모유", mixed: "혼합" };
+const FEED_TYPE_LABELS: Record<string, string> = {
+  formula: "분유", breast: "모유", mixed: "혼합", weaning: "이유식", snack: "간식"
+};
+// 수유량 단위: 이유식/간식은 g, 나머지는 ml
+const FEED_UNIT: Record<string, string> = {
+  formula: "ml", breast: "ml", mixed: "ml", weaning: "g", snack: "g"
+};
+
 const NOTE_CATEGORIES  = { health: "건강", milestone: "성장", other: "기타" };
 
 type EditModal =
-  | { type: "feed";  entry: FeedingEntry }
-  | { type: "sleep"; entry: SleepEntry }
-  | { type: "note";  entry: SpecialNote }
+  | { type: "feed";   entry: FeedingEntry }
+  | { type: "sleep";  entry: SleepEntry }
+  | { type: "note";   entry: SpecialNote }
+  | { type: "growth"; entry: GrowthEntry }
   | null;
 
 export default function DailyPage() {
@@ -174,15 +191,16 @@ export default function DailyPage() {
   const babyId   = getLocalBabyId();
   const isSynced = !!(isFirebaseConfigured && familyId && babyId);
 
-  const [data, setData]           = useState<DailyData>(loadToday);
-  const [tab, setTab]             = useState<"feed"|"sleep"|"note">("feed");
+  const [data, setData]             = useState<DailyData>(loadToday);
+  const [tab, setTab]               = useState<"feed"|"sleep"|"growth"|"note">("feed");
   const [syncStatus, setSyncStatus] = useState<"idle"|"syncing"|"synced">("idle");
-  const [editModal, setEditModal] = useState<EditModal>(null);
+  const [editModal, setEditModal]   = useState<EditModal>(null);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [newFeed,  setNewFeed]  = useState<Omit<FeedingEntry,"id">>({ time: nowTime(), amount: 120, type: "formula", note: "" });
-  const [newSleep, setNewSleep] = useState<Omit<SleepEntry,"id">>({ startTime: nowTime(), endTime: "", note: "" });
-  const [newNote,  setNewNote]  = useState<Omit<SpecialNote,"id">>({ time: nowTime(), content: "", category: "other" });
+  const [newFeed,   setNewFeed]   = useState<Omit<FeedingEntry,"id">>({ time: nowTime(), endTime: "", amount: 120, type: "formula", note: "" });
+  const [newSleep,  setNewSleep]  = useState<Omit<SleepEntry,"id">>({ startTime: nowTime(), endTime: "", note: "" });
+  const [newNote,   setNewNote]   = useState<Omit<SpecialNote,"id">>({ time: nowTime(), content: "", category: "other" });
+  const [newGrowth, setNewGrowth] = useState<Omit<GrowthEntry,"id">>({ date: todayKey(), height: "", weight: "", note: "" });
 
   // Firebase 실시간 구독 (authReady 대기 후)
   useEffect(() => {
@@ -192,7 +210,11 @@ export default function DailyPage() {
       const dateKey = todayKey();
       unsub = listenDailyRecord(familyId, babyId, dateKey, (firebaseData) => {
         if (firebaseData) {
-          const merged = { ...DEFAULT_DAILY, ...firebaseData } as DailyData;
+          const merged: DailyData = {
+            ...DEFAULT_DAILY,
+            ...firebaseData,
+            growths: firebaseData.growths || [],
+          };
           setData(merged);
           saveLocalToday(merged);
         }
@@ -232,7 +254,7 @@ export default function DailyPage() {
   function addFeeding() {
     const entry: FeedingEntry = { ...newFeed, id: Date.now().toString() };
     update({ feedings: [...data.feedings, entry] });
-    setNewFeed({ time: nowTime(), amount: 120, type: "formula", note: "" });
+    setNewFeed({ time: nowTime(), endTime: "", amount: 120, type: "formula", note: "" });
     if (data.alarmEnabled && "Notification" in window) Notification.requestPermission();
   }
   function addSleep() {
@@ -246,10 +268,17 @@ export default function DailyPage() {
     update({ notes: [...data.notes, entry] });
     setNewNote({ time: nowTime(), content: "", category: "other" });
   }
+  function addGrowth() {
+    if (!newGrowth.height && !newGrowth.weight) return;
+    const entry: GrowthEntry = { ...newGrowth, id: Date.now().toString() };
+    update({ growths: [...(data.growths || []), entry] });
+    setNewGrowth({ date: todayKey(), height: "", weight: "", note: "" });
+  }
 
   function removeFeeding(id: string) { update({ feedings: data.feedings.filter(f => f.id !== id) }); }
   function removeSleep(id: string)   { update({ sleeps: data.sleeps.filter(s => s.id !== id) }); }
   function removeNote(id: string)    { update({ notes: data.notes.filter(n => n.id !== id) }); }
+  function removeGrowth(id: string)  { update({ growths: (data.growths||[]).filter(g => g.id !== id) }); }
 
   function saveEdit() {
     if (!editModal) return;
@@ -259,11 +288,13 @@ export default function DailyPage() {
       update({ sleeps: data.sleeps.map(s => s.id === editModal.entry.id ? editModal.entry : s) });
     } else if (editModal.type === "note") {
       update({ notes: data.notes.map(n => n.id === editModal.entry.id ? editModal.entry : n) });
+    } else if (editModal.type === "growth") {
+      update({ growths: (data.growths||[]).map(g => g.id === editModal.entry.id ? editModal.entry : g) });
     }
     setEditModal(null);
   }
 
-  const totalFeedAmount = data.feedings.reduce((sum, f) => sum + f.amount, 0);
+  const totalFeedAmount = data.feedings.reduce((sum, f) => sum + (f.amount || 0), 0);
   const totalSleepMins  = data.sleeps.reduce((sum, s) => {
     if (!s.startTime || !s.endTime) return sum;
     const [sh, sm] = s.startTime.split(":").map(Number);
@@ -276,11 +307,12 @@ export default function DailyPage() {
   const recFeeding = getRecommendedFeedingAmount(days);
   const recSleep   = getRecommendedSleep(days);
   const milestones = getMilestones(days);
+  const latestGrowth = (data.growths || []).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h2 className="page-title">📋 오늘 기록</h2>
+        <h2 className="page-title">📋 육아일지</h2>
         <p className="page-subtitle">{babyName}의 오늘 하루를 기록해요</p>
         <div className="daily-date">{new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" })}</div>
         {days !== null && <div className="baby-days-badge">생후 {days}일째</div>}
@@ -306,6 +338,18 @@ export default function DailyPage() {
           <span className="summary-icon">😴</span>
           <div><div className="summary-val">{Math.floor(totalSleepMins/60)}h {totalSleepMins%60}m</div><div className="summary-label">총 수면</div></div>
         </div>
+        {latestGrowth && (
+          <>
+            <div className="summary-divider"/>
+            <div className="summary-item">
+              <span className="summary-icon">📏</span>
+              <div>
+                <div className="summary-val">{latestGrowth.height ? `${latestGrowth.height}cm` : latestGrowth.weight ? `${latestGrowth.weight}kg` : "-"}</div>
+                <div className="summary-label">키/몸무게</div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {nextFeedTime && (
@@ -352,11 +396,13 @@ export default function DailyPage() {
       </div>
 
       <div className="daily-tabs">
-        <button className={`dtab ${tab === "feed"  ? "active" : ""}`} onClick={() => setTab("feed")}>🍼 수유</button>
-        <button className={`dtab ${tab === "sleep" ? "active" : ""}`} onClick={() => setTab("sleep")}>😴 수면</button>
-        <button className={`dtab ${tab === "note"  ? "active" : ""}`} onClick={() => setTab("note")}>📝 특이사항</button>
+        <button className={`dtab ${tab === "feed"   ? "active" : ""}`} onClick={() => setTab("feed")}>🍼 수유</button>
+        <button className={`dtab ${tab === "sleep"  ? "active" : ""}`} onClick={() => setTab("sleep")}>😴 수면</button>
+        <button className={`dtab ${tab === "growth" ? "active" : ""}`} onClick={() => setTab("growth")}>📏 키/몸무게</button>
+        <button className={`dtab ${tab === "note"   ? "active" : ""}`} onClick={() => setTab("note")}>📝 특이사항</button>
       </div>
 
+      {/* ── 수유 탭 ── */}
       {tab === "feed" && (
         <div className="tab-content">
           {recFeeding && (
@@ -373,17 +419,29 @@ export default function DailyPage() {
             <h4 className="add-title">수유 기록 추가</h4>
             <div className="add-row">
               <div className="add-field">
-                <label>시간</label>
-                <input type="time" value={newFeed.time} onChange={e => setNewFeed(p => ({...p, time: e.target.value}))} />
+                <label>시작 시간</label>
+                <div className="time-now-row">
+                  <input type="time" value={newFeed.time} onChange={e => setNewFeed(p => ({...p, time: e.target.value}))} />
+                  <button className="btn-now" onClick={() => setNewFeed(p => ({...p, time: nowTime()}))}>지금</button>
+                </div>
               </div>
               <div className="add-field">
-                <label>수유량(ml)</label>
-                <input type="number" min={0} max={500} step={10} value={newFeed.amount}
+                <label>끝난 시간</label>
+                <div className="time-now-row">
+                  <input type="time" value={newFeed.endTime || ""} onChange={e => setNewFeed(p => ({...p, endTime: e.target.value}))} />
+                  <button className="btn-now" onClick={() => setNewFeed(p => ({...p, endTime: nowTime()}))}>지금</button>
+                </div>
+              </div>
+            </div>
+            <div className="add-row">
+              <div className="add-field">
+                <label>수유량({FEED_UNIT[newFeed.type]})</label>
+                <input type="number" min={0} max={1000} step={10} value={newFeed.amount}
                   onChange={e => setNewFeed(p => ({...p, amount: Number(e.target.value)}))} />
               </div>
             </div>
             <div className="feed-type-row">
-              {(["formula","breast","mixed"] as const).map(t => (
+              {(["formula","breast","mixed","weaning","snack"] as const).map(t => (
                 <button key={t} className={`type-btn ${newFeed.type === t ? "active" : ""}`}
                   onClick={() => setNewFeed(p => ({...p, type: t}))}>{FEED_TYPE_LABELS[t]}</button>
               ))}
@@ -396,9 +454,10 @@ export default function DailyPage() {
             {data.feedings.length === 0 && <div className="empty-record">수유 기록이 없어요 🍼</div>}
             {[...data.feedings].reverse().map(f => (
               <div key={f.id} className="record-item">
-                <div className="record-time">{f.time}</div>
+                <div className="record-time">{f.time}{f.endTime ? `~${f.endTime}` : ""}</div>
                 <div className="record-main">
-                  <span className="record-title">{FEED_TYPE_LABELS[f.type]} {f.amount}ml</span>
+                  <span className="record-title">{FEED_TYPE_LABELS[f.type]} {f.amount}{FEED_UNIT[f.type]}</span>
+                  {f.endTime && f.time && <span className="sleep-dur">({calcDuration(f.time, f.endTime)})</span>}
                   {f.note && <span className="record-note">{f.note}</span>}
                 </div>
                 <button className="record-edit" onClick={() => setEditModal({ type: "feed", entry: {...f} })}>✏️</button>
@@ -409,6 +468,7 @@ export default function DailyPage() {
         </div>
       )}
 
+      {/* ── 수면 탭 ── */}
       {tab === "sleep" && (
         <div className="tab-content">
           {recSleep && (
@@ -426,11 +486,17 @@ export default function DailyPage() {
             <div className="add-row">
               <div className="add-field">
                 <label>잠든 시간</label>
-                <input type="time" value={newSleep.startTime} onChange={e => setNewSleep(p => ({...p, startTime: e.target.value}))} />
+                <div className="time-now-row">
+                  <input type="time" value={newSleep.startTime} onChange={e => setNewSleep(p => ({...p, startTime: e.target.value}))} />
+                  <button className="btn-now" onClick={() => setNewSleep(p => ({...p, startTime: nowTime()}))}>지금</button>
+                </div>
               </div>
               <div className="add-field">
                 <label>일어난 시간</label>
-                <input type="time" value={newSleep.endTime} onChange={e => setNewSleep(p => ({...p, endTime: e.target.value}))} />
+                <div className="time-now-row">
+                  <input type="time" value={newSleep.endTime} onChange={e => setNewSleep(p => ({...p, endTime: e.target.value}))} />
+                  <button className="btn-now" onClick={() => setNewSleep(p => ({...p, endTime: nowTime()}))}>지금</button>
+                </div>
               </div>
             </div>
             <input className="add-input-full" type="text" placeholder="메모 (선택)" value={newSleep.note}
@@ -443,7 +509,7 @@ export default function DailyPage() {
               <div key={s.id} className="record-item">
                 <div className="record-time">{s.startTime}</div>
                 <div className="record-main">
-                  <span className="record-title">{s.endTime ? `~ ${s.endTime}` : "자는 중..."} {s.endTime && <span className="sleep-dur">({calcSleepDuration(s.startTime, s.endTime)})</span>}</span>
+                  <span className="record-title">{s.endTime ? `~ ${s.endTime}` : "자는 중..."} {s.endTime && <span className="sleep-dur">({calcDuration(s.startTime, s.endTime)})</span>}</span>
                   {s.note && <span className="record-note">{s.note}</span>}
                 </div>
                 <button className="record-edit" onClick={() => setEditModal({ type: "sleep", entry: {...s} })}>✏️</button>
@@ -454,6 +520,48 @@ export default function DailyPage() {
         </div>
       )}
 
+      {/* ── 키/몸무게 탭 ── */}
+      {tab === "growth" && (
+        <div className="tab-content">
+          <div className="add-card">
+            <h4 className="add-title">키 / 몸무게 기록</h4>
+            <div className="add-row">
+              <div className="add-field">
+                <label>키 (cm)</label>
+                <input type="number" min={0} max={200} step={0.1} placeholder="예: 58.5"
+                  value={newGrowth.height}
+                  onChange={e => setNewGrowth(p => ({...p, height: e.target.value === "" ? "" : Number(e.target.value)}))} />
+              </div>
+              <div className="add-field">
+                <label>몸무게 (kg)</label>
+                <input type="number" min={0} max={30} step={0.01} placeholder="예: 5.2"
+                  value={newGrowth.weight}
+                  onChange={e => setNewGrowth(p => ({...p, weight: e.target.value === "" ? "" : Number(e.target.value)}))} />
+              </div>
+            </div>
+            <input className="add-input-full" type="text" placeholder="메모 (예: 병원 측정, 집 체중계)" value={newGrowth.note}
+              onChange={e => setNewGrowth(p => ({...p, note: e.target.value}))} />
+            <button className="btn-add" onClick={addGrowth}>+ 키/몸무게 기록 추가</button>
+          </div>
+          <div className="record-list">
+            {(data.growths || []).length === 0 && <div className="empty-record">키/몸무게 기록이 없어요 📏</div>}
+            {[...(data.growths || [])].reverse().map(g => (
+              <div key={g.id} className="record-item">
+                <div className="record-time">{g.date}</div>
+                <div className="record-main">
+                  {g.height ? <span className="record-title">키 {g.height}cm</span> : null}
+                  {g.weight ? <span className="record-title" style={{ marginLeft: g.height ? "0.5rem" : 0 }}>몸무게 {g.weight}kg</span> : null}
+                  {g.note && <span className="record-note">{g.note}</span>}
+                </div>
+                <button className="record-edit" onClick={() => setEditModal({ type: "growth", entry: {...g} })}>✏️</button>
+                <button className="record-del" onClick={() => removeGrowth(g.id)}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 특이사항 탭 ── */}
       {tab === "note" && (
         <div className="tab-content">
           {milestones.length > 0 && (
@@ -475,7 +583,10 @@ export default function DailyPage() {
             <div className="add-row">
               <div className="add-field">
                 <label>시간</label>
-                <input type="time" value={newNote.time} onChange={e => setNewNote(p => ({...p, time: e.target.value}))} />
+                <div className="time-now-row">
+                  <input type="time" value={newNote.time} onChange={e => setNewNote(p => ({...p, time: e.target.value}))} />
+                  <button className="btn-now" onClick={() => setNewNote(p => ({...p, time: nowTime()}))}>지금</button>
+                </div>
               </div>
               <div className="add-field">
                 <label>분류</label>
@@ -505,23 +616,31 @@ export default function DailyPage() {
         </div>
       )}
 
-      {/* 수정 Modal */}
+      {/* ── 수정 Modal ── */}
       {editModal && (
         <div className="modal-overlay" onClick={() => setEditModal(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
+
             {editModal.type === "feed" && (<>
               <h3 className="modal-title">🍼 수유 기록 수정</h3>
-              <div className="modal-field"><label>시간</label>
+              <div className="modal-field"><label>시작 시간</label>
                 <input type="time" value={editModal.entry.time}
                   onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, time: e.target.value } })} />
               </div>
-              <div className="modal-field"><label>수유량(ml)</label>
-                <input type="number" min={0} max={500} step={10} value={editModal.entry.amount}
+              <div className="modal-field"><label>끝난 시간</label>
+                <div className="time-now-row">
+                  <input type="time" value={editModal.entry.endTime || ""}
+                    onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, endTime: e.target.value } })} />
+                  <button className="btn-now" onClick={() => setEditModal({ ...editModal, entry: { ...editModal.entry, endTime: nowTime() } })}>지금</button>
+                </div>
+              </div>
+              <div className="modal-field"><label>수유량({FEED_UNIT[editModal.entry.type]})</label>
+                <input type="number" min={0} max={1000} step={10} value={editModal.entry.amount}
                   onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, amount: Number(e.target.value) } })} />
               </div>
               <div className="modal-field"><label>종류</label>
                 <div className="feed-type-row">
-                  {(["formula","breast","mixed"] as const).map(t => (
+                  {(["formula","breast","mixed","weaning","snack"] as const).map(t => (
                     <button key={t} className={`type-btn ${editModal.entry.type === t ? "active" : ""}`}
                       onClick={() => setEditModal({ ...editModal, entry: { ...editModal.entry, type: t } })}>{FEED_TYPE_LABELS[t]}</button>
                   ))}
@@ -532,6 +651,7 @@ export default function DailyPage() {
                   onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, note: e.target.value } })} />
               </div>
             </>)}
+
             {editModal.type === "sleep" && (<>
               <h3 className="modal-title">😴 수면 기록 수정</h3>
               <div className="modal-field"><label>잠든 시간</label>
@@ -547,6 +667,23 @@ export default function DailyPage() {
                   onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, note: e.target.value } })} />
               </div>
             </>)}
+
+            {editModal.type === "growth" && (<>
+              <h3 className="modal-title">📏 키/몸무게 수정</h3>
+              <div className="modal-field"><label>키 (cm)</label>
+                <input type="number" min={0} max={200} step={0.1} value={editModal.entry.height}
+                  onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, height: e.target.value === "" ? "" : Number(e.target.value) } })} />
+              </div>
+              <div className="modal-field"><label>몸무게 (kg)</label>
+                <input type="number" min={0} max={30} step={0.01} value={editModal.entry.weight}
+                  onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, weight: e.target.value === "" ? "" : Number(e.target.value) } })} />
+              </div>
+              <div className="modal-field"><label>메모</label>
+                <input type="text" value={editModal.entry.note}
+                  onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, note: e.target.value } })} />
+              </div>
+            </>)}
+
             {editModal.type === "note" && (<>
               <h3 className="modal-title">📝 특이사항 수정</h3>
               <div className="modal-field"><label>시간</label>
@@ -564,6 +701,7 @@ export default function DailyPage() {
                   onChange={e => setEditModal({ ...editModal, entry: { ...editModal.entry, content: e.target.value } })} />
               </div>
             </>)}
+
             <div className="modal-buttons">
               <button className="btn-cancel" onClick={() => setEditModal(null)}>취소</button>
               <button className="btn-save" onClick={saveEdit}>저장</button>

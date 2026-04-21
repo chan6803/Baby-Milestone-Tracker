@@ -58,7 +58,7 @@ function AppContent() {
       localStorage.setItem("mapagi-active-baby", babies[0].id);
     }
     setLoggedIn(true);
-    setPage("home");
+    setPage("daily");
   }
 
   // 로그아웃 처리
@@ -77,14 +77,14 @@ function AppContent() {
   }
 
   const NAV_ITEMS: { id: Page; icon: string; label: string }[] = [
-    { id: "home",     icon: "🏠",  label: "홈" },
+    { id: "daily",    icon: "📋",  label: "육아일지" },
     future
       ? { id: "pregnancy", icon: "🤰", label: "임신일지" }
       : { id: "vaccine",   icon: "💉", label: "접종" },
-    { id: "clinic",   icon: "🏥",  label: "소아과" },
-    { id: "daily",    icon: "📋",  label: "기록" },
+    { id: "clinic",   icon: "🏥",  label: "아동병원" },
     { id: "supplies", icon: "🛍️", label: "육아준비물" },
     { id: "gallery",  icon: "📸",  label: "사진첩" },
+    { id: "home",     icon: "🏠",  label: "홈" },
   ];
 
   return (
