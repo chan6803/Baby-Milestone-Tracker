@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { isFirebaseConfigured, authReady } from "@/lib/firebase";
+import {
+  getLocalFamilyId, getLocalBabyId,
+  syncVaccineRecord, clearVaccineRecord, listenVaccineRecords
+} from "@/lib/family-sync";
 
 interface VaccineRecord {
   scheduledDate: string;
@@ -84,24 +89,82 @@ function getStatus(scheduledDate: string, actualDate: string): "done" | "upcomin
   return "upcoming";
 }
 
+function loadLocalRecords(): Record<string, VaccineRecord> {
+  try { return JSON.parse(localStorage.getItem("mapagi-vaccines") || "{}"); } catch { return {}; }
+}
+
 export default function VaccinePage() {
+  // mapagi-babies 배열(신방식) → mapagi-family(구방식) 순으로 fallback
   const savedFamily = (() => {
-    try { return JSON.parse(localStorage.getItem("mapagi-family") || "{}"); } catch { return {}; }
+    try {
+      const babies = JSON.parse(localStorage.getItem("mapagi-babies") || "[]");
+      const activeId = localStorage.getItem("mapagi-active-baby");
+      const baby = babies.find((b: any) => b.id === activeId) || babies[0];
+      if (baby) return baby;
+      return JSON.parse(localStorage.getItem("mapagi-family") || "{}");
+    } catch { return {}; }
   })();
   const birthDate: string = savedFamily.birthDate || "";
   const babyName: string = savedFamily.babyName || "아기";
 
-  const [records, setRecords] = useState<Record<string, VaccineRecord>>(() => {
-    try { return JSON.parse(localStorage.getItem("mapagi-vaccines") || "{}"); } catch { return {}; }
-  });
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [editRecord, setEditRecord] = useState<VaccineRecord>({ scheduledDate: "", actualDate: "", note: "" });
+  const familyId = getLocalFamilyId();
+  const babyId   = getLocalBabyId();
+  const isSynced = !!(isFirebaseConfigured && familyId && babyId);
 
-  function saveRecord(id: string) {
+  const [records, setRecords] = useState<Record<string, VaccineRecord>>(loadLocalRecords);
+  const [openId, setOpenId]   = useState<string | null>(null);
+  const [editRecord, setEditRecord] = useState<VaccineRecord>({ scheduledDate: "", actualDate: "", note: "" });
+  const [syncing, setSyncing] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Firebase 실시간 구독 (authReady 대기 후 시작)
+  useEffect(() => {
+    if (!isSynced) return;
+    let unsub: (() => void) | null = null;
+    authReady.then(() => {
+      unsub = listenVaccineRecords(familyId, babyId, (firebaseRecords) => {
+        const merged: Record<string, VaccineRecord> = { ...loadLocalRecords() };
+        Object.entries(firebaseRecords).forEach(([id, data]) => {
+          merged[id] = data as VaccineRecord;
+        });
+        setRecords(merged);
+        localStorage.setItem("mapagi-vaccines", JSON.stringify(merged));
+      });
+    });
+    return () => { if (unsub) unsub(); };
+  }, [familyId, babyId, isSynced]);
+
+  async function saveRecord(id: string) {
     const updated = { ...records, [id]: editRecord };
     setRecords(updated);
     localStorage.setItem("mapagi-vaccines", JSON.stringify(updated));
     setOpenId(null);
+
+    if (isSynced) {
+      setSyncing(true);
+      try {
+        await authReady;
+        await syncVaccineRecord(familyId, babyId, id, editRecord);
+      } catch (e) {
+        console.error("접종 기록 동기화 실패:", e);
+      } finally {
+        setSyncing(false);
+      }
+    }
+  }
+
+  async function deleteRecord(id: string) {
+    const updated = { ...records };
+    delete updated[id];
+    setRecords(updated);
+    localStorage.setItem("mapagi-vaccines", JSON.stringify(updated));
+    setDeleteConfirmId(null);
+    setOpenId(null);
+
+    if (isSynced) {
+      await authReady;
+      await clearVaccineRecord(familyId, babyId, id);
+    }
   }
 
   function openEdit(item: VaccineScheduleItem) {
@@ -118,6 +181,11 @@ export default function VaccinePage() {
       <div className="page-header">
         <h2 className="page-title">💉 예방접종 관리</h2>
         <p className="page-subtitle">{babyName}의 예방접종 일정을 관리해요</p>
+        {isSynced && (
+          <div className="sync-badge">
+            {syncing ? "⏳ 동기화 중..." : "☁️ 가족 간 공유 중"}
+          </div>
+        )}
         {birthDate && (
           <div className="progress-bar-wrap">
             <div className="progress-label">완료 {doneCount} / {VACCINE_SCHEDULE.length}회</div>
@@ -164,6 +232,7 @@ export default function VaccinePage() {
                   <div className="vaccine-actual">
                     <span className="vdate-label">접종일:</span>
                     <span className="vdate-actual">{formatDate(rec.actualDate)}</span>
+                    {rec.note && <span className="vdate-note"> · {rec.note}</span>}
                   </div>
                 )}
               </div>
@@ -173,7 +242,7 @@ export default function VaccinePage() {
         })}
       </div>
 
-      {/* Modal */}
+      {/* 수정 Modal */}
       {openId && (() => {
         const item = VACCINE_SCHEDULE.find(v => v.id === openId)!;
         return (
@@ -197,6 +266,11 @@ export default function VaccinePage() {
                   onChange={e => setEditRecord(p => ({ ...p, note: e.target.value }))} />
               </div>
               <div className="modal-buttons">
+                {records[openId]?.actualDate && (
+                  <button className="btn-delete" onClick={() => setDeleteConfirmId(openId)}>
+                    🗑️ 기록 삭제
+                  </button>
+                )}
                 <button className="btn-cancel" onClick={() => setOpenId(null)}>취소</button>
                 <button className="btn-save" style={{ background: item.color }} onClick={() => saveRecord(openId)}>저장</button>
               </div>
@@ -204,6 +278,21 @@ export default function VaccinePage() {
           </div>
         );
       })()}
+
+      {/* 삭제 확인 Modal */}
+      {deleteConfirmId && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmId(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title" style={{ color: "#e04060" }}>접종 기록 삭제</h3>
+            <p className="modal-disease">이 접종 기록을 삭제할까요?</p>
+            <div className="modal-buttons">
+              <button className="btn-cancel" onClick={() => setDeleteConfirmId(null)}>취소</button>
+              <button className="btn-save" style={{ background: "#e04060" }}
+                onClick={() => deleteRecord(deleteConfirmId)}>삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

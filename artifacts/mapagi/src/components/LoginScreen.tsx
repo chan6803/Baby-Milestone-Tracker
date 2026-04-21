@@ -5,8 +5,8 @@
 // ================================================================
 
 import { useState } from "react";
-import { getFamilyId, loadFamilyData } from "@/lib/family-sync";
-import { isFirebaseConfigured } from "@/lib/firebase";
+import { getFamilyId, loadFamilyData, syncFamilyInfo } from "@/lib/family-sync";
+import { isFirebaseConfigured, authReady } from "@/lib/firebase";
 import type { BabyProfile } from "@/pages/home";
 
 interface Props {
@@ -38,6 +38,11 @@ export default function LoginScreen({ onLogin }: Props) {
       // 가족 ID = SHA-256(엄마|아빠|아기) — 같은 이름이면 항상 같은 ID
       const familyId = await getFamilyId(mom, dad, baby);
 
+      // Firebase 익명 인증이 완료될 때까지 대기 (Firestore 보안 규칙 통과)
+      if (isFirebaseConfigured) {
+        await authReady;
+      }
+
       let loadedBabies: BabyProfile[] | null = null;
 
       if (isFirebaseConfigured) {
@@ -52,7 +57,7 @@ export default function LoginScreen({ onLogin }: Props) {
       // 새 가족이면 입력한 정보로 첫 번째 아기 프로필 생성
       if (!loadedBabies) {
         const firstBaby: BabyProfile = {
-          id: Date.now().toString(),
+          id: familyId.slice(0, 12), // ★ familyId 기반 고정 ID → 기기 간 동일 보장
           momName: mom,
           dadName: dad,
           babyName: baby,
@@ -68,8 +73,16 @@ export default function LoginScreen({ onLogin }: Props) {
       localStorage.setItem("mapagi-login-dad",  dad);
       localStorage.setItem("mapagi-login-baby", baby);
       localStorage.setItem("mapagi-babies",     JSON.stringify(loadedBabies));
-      if (!localStorage.getItem("mapagi-active-baby")) {
-        localStorage.setItem("mapagi-active-baby", loadedBabies[0].id);
+      localStorage.setItem("mapagi-active-baby", loadedBabies[0].id);
+      // ★ mapagi-family도 함께 저장 → 접종/기록 등 구버전 코드 호환
+      localStorage.setItem("mapagi-family", JSON.stringify(loadedBabies[0]));
+
+      // ★ Firebase에 바로 동기화 → 다른 기기가 같은 babyId 로드 가능
+      if (isFirebaseConfigured) {
+        syncFamilyInfo(familyId, {
+          babies: loadedBabies,
+          updatedAt: new Date().toISOString(),
+        }).catch(e => console.warn("login sync 실패:", e));
       }
 
       onLogin(familyId, loadedBabies);
