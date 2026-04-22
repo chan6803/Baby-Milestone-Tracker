@@ -2598,3 +2598,65 @@
   text-align: center;
   font-weight: 500;
 }
+
+/* =====================================================
+   태어난 날 고정 표시 (로그인 후)
+   ===================================================== */
+.birth-fixed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(200,112,224,0.07);
+  border: 1px solid rgba(200,100,200,0.2);
+  border-radius: 0.75rem;
+}
+.birth-fixed-text {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #8040a0;
+}
+.btn-edit-small {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: #c060a0;
+  background: rgba(200,80,160,0.08);
+  border: 1px solid rgba(200,80,160,0.25);
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-edit-small:hover { background: rgba(200,80,160,0.16); }
+.btn-date-done {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #e8457a, #c060d0);
+  border: none;
+  border-radius: 0.7rem;
+  cursor: pointer;
+  opacity: 0.9;
+}
+.btn-date-done:hover { opacity: 1; }
+
+/* =====================================================
+   날짜별 누적 그룹 (키/몸무게·특이사항)
+   ===================================================== */
+.cumulative-group {
+  margin-bottom: 1rem;
+}
+.cumulative-date-header {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #a060c0;
+  background: rgba(200,112,224,0.1);
+  border-left: 3px solid #c060d0;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0 0.4rem 0.4rem 0;
+  margin-bottom: 0.4rem;
+}

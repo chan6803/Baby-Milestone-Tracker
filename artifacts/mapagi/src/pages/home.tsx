@@ -96,6 +96,11 @@ export default function Home({ onLogout }: HomeProps = {}) {
   const isLoggedIn = !!localStorage.getItem("mapagi-family-id");
   const [today, setToday]         = useState(new Date());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  // 로그인 후 태어난 날: 기본적으로 고정 표시, 수정 버튼 클릭 시 picker 표시
+  const [editingBirth, setEditingBirth] = useState(
+    () => !isLoggedIn || !( localStorage.getItem("mapagi-active-baby") &&
+          JSON.parse(localStorage.getItem("mapagi-babies") || "[]").find((b: any) => b.birthDate)?.birthDate )
+  );
 
   useEffect(() => {
     const t = setInterval(() => setToday(new Date()), 60000);
@@ -108,6 +113,9 @@ export default function Home({ onLogout }: HomeProps = {}) {
     setActiveId(id);
     localStorage.setItem("mapagi-active-baby", id);
     setSaved(false);
+    // 아기 전환 시: 해당 아기에 birthDate가 있으면 고정 표시로 전환
+    const baby = babies.find(b => b.id === id);
+    setEditingBirth(!baby?.birthDate);
   }
 
   function handleChange(field: keyof BabyProfile, value: string) {
@@ -271,14 +279,33 @@ export default function Home({ onLogout }: HomeProps = {}) {
               <span className="label-icon">🎂</span> 태어난 날(예정일)
               <span className="field-hint"> (과거·미래 모두 가능)</span>
             </label>
-            <ScrollDatePicker
-              value={activeBaby.birthDate}
-              onChange={v => handleChange("birthDate", v)}
-            />
-            {activeBaby.birthDate && (
-              <div className="sdp-display-val">
-                {activeBaby.birthDate.slice(0,4)}년 {parseInt(activeBaby.birthDate.slice(5,7))}월 {parseInt(activeBaby.birthDate.slice(8,10))}일 선택됨
+
+            {/* 로그인 상태이고 날짜가 설정됐으면 고정 표시 */}
+            {isLoggedIn && !editingBirth ? (
+              <div className="birth-fixed-row">
+                <span className="birth-fixed-text">
+                  {activeBaby.birthDate ? formatDate(activeBaby.birthDate) : "날짜 미설정"}
+                </span>
+                <button className="btn-edit-small" onClick={() => setEditingBirth(true)}>✏️ 수정</button>
               </div>
+            ) : (
+              <>
+                <ScrollDatePicker
+                  value={activeBaby.birthDate || ""}
+                  onChange={v => { handleChange("birthDate", v); }}
+                />
+                {activeBaby.birthDate && (
+                  <div className="sdp-display-val">
+                    {activeBaby.birthDate.slice(0,4)}년 {parseInt(activeBaby.birthDate.slice(5,7))}월 {parseInt(activeBaby.birthDate.slice(8,10))}일 선택됨
+                  </div>
+                )}
+                {isLoggedIn && (
+                  <button className="btn-date-done"
+                    onClick={() => { if (activeBaby.birthDate) setEditingBirth(true); }}>
+                    ✓ 날짜 선택 완료
+                  </button>
+                )}
+              </>
             )}
           </div>
 

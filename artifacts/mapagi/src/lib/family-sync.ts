@@ -18,7 +18,15 @@ export function getLocalFamilyId(): string {
   return localStorage.getItem("mapagi-family-id") || "";
 }
 
+// ★ 핵심 수정: babyId를 familyId에서 직접 파생
+//   → 같은 familyId면 항상 같은 babyId → 기기 간 Firebase 경로가 반드시 일치
 export function getLocalBabyId(): string {
+  const familyId = localStorage.getItem("mapagi-family-id") || "";
+  if (familyId) {
+    // 첫 번째(주 아기)는 familyId 앞 12자로 고정 → 기기 무관 동일 보장
+    return familyId.slice(0, 12);
+  }
+  // 로그인 전 폴백 (거의 도달하지 않음)
   try {
     const babies = JSON.parse(localStorage.getItem("mapagi-babies") || "[]");
     const activeId = localStorage.getItem("mapagi-active-baby");
@@ -64,7 +72,7 @@ export function listenFamilyInfo(familyId: string, callback: (data: DocumentData
   });
 }
 
-// ── 오늘의 기록 저장/구독 ─────────────────────────────────────────
+// ── 오늘의 기록 저장/구독 (수유·수면) ────────────────────────────
 export async function syncDailyRecord(familyId: string, babyId: string, date: string, data: DocumentData) {
   if (!isFirebaseConfigured || !db) return;
   await setDoc(doc(db, "families", familyId, "babies", babyId, "daily", date), data, { merge: true });
@@ -83,31 +91,67 @@ export function listenDailyRecord(
   );
 }
 
-// ── 예방접종 기록 저장/삭제/구독 ──────────────────────────────────
-export async function syncVaccineRecord(
+// ── 키/몸무게 기록 (누적·컬렉션) ─────────────────────────────────
+export async function syncGrowthEntry(familyId: string, babyId: string, entryId: string, data: DocumentData) {
+  if (!isFirebaseConfigured || !db) return;
+  await setDoc(doc(db, "families", familyId, "babies", babyId, "growth", entryId), data);
+}
+
+export async function deleteGrowthEntry(familyId: string, babyId: string, entryId: string) {
+  if (!isFirebaseConfigured || !db) return;
+  try { await deleteDoc(doc(db, "families", familyId, "babies", babyId, "growth", entryId)); } catch {}
+}
+
+export function listenGrowthRecords(
   familyId: string,
   babyId: string,
-  vaccineId: string,
-  data: DocumentData
+  callback: (entries: DocumentData[]) => void
+): Unsubscribe {
+  if (!isFirebaseConfigured || !db) return () => {};
+  return onSnapshot(
+    query(collection(db, "families", familyId, "babies", babyId, "growth"), orderBy("date", "desc")),
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  );
+}
+
+// ── 특이사항 기록 (누적·컬렉션) ──────────────────────────────────
+export async function syncNoteEntry(familyId: string, babyId: string, entryId: string, data: DocumentData) {
+  if (!isFirebaseConfigured || !db) return;
+  await setDoc(doc(db, "families", familyId, "babies", babyId, "notes", entryId), data);
+}
+
+export async function deleteNoteEntry(familyId: string, babyId: string, entryId: string) {
+  if (!isFirebaseConfigured || !db) return;
+  try { await deleteDoc(doc(db, "families", familyId, "babies", babyId, "notes", entryId)); } catch {}
+}
+
+export function listenNoteRecords(
+  familyId: string,
+  babyId: string,
+  callback: (entries: DocumentData[]) => void
+): Unsubscribe {
+  if (!isFirebaseConfigured || !db) return () => {};
+  return onSnapshot(
+    query(collection(db, "families", familyId, "babies", babyId, "notes"), orderBy("date", "desc")),
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  );
+}
+
+// ── 예방접종 기록 저장/삭제/구독 ──────────────────────────────────
+export async function syncVaccineRecord(
+  familyId: string, babyId: string, vaccineId: string, data: DocumentData
 ) {
   if (!isFirebaseConfigured || !db) return;
-  await setDoc(
-    doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId),
-    data,
-    { merge: true }
-  );
+  await setDoc(doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId), data, { merge: true });
 }
 
 export async function clearVaccineRecord(familyId: string, babyId: string, vaccineId: string) {
   if (!isFirebaseConfigured || !db) return;
-  try {
-    await deleteDoc(doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId));
-  } catch {}
+  try { await deleteDoc(doc(db, "families", familyId, "babies", babyId, "vaccines", vaccineId)); } catch {}
 }
 
 export function listenVaccineRecords(
-  familyId: string,
-  babyId: string,
+  familyId: string, babyId: string,
   callback: (records: Record<string, DocumentData>) => void
 ): Unsubscribe {
   if (!isFirebaseConfigured || !db) return () => {};
@@ -123,10 +167,7 @@ export function listenVaccineRecords(
 
 // ── 사진 업로드/삭제 ──────────────────────────────────────────────
 export async function uploadPhoto(
-  familyId: string,
-  photoId: string,
-  base64Data: string,
-  mimeType = "image/jpeg"
+  familyId: string, photoId: string, base64Data: string, mimeType = "image/jpeg"
 ): Promise<string> {
   if (!isFirebaseConfigured || !storage) throw new Error("Firebase not configured");
   const storageRef = ref(storage, `families/${familyId}/photos/${photoId}`);
@@ -134,15 +175,11 @@ export async function uploadPhoto(
   return await getDownloadURL(storageRef);
 }
 
-// deletePhotoFromStorage: gallery.tsx에서 사용
 export async function deletePhotoFromStorage(familyId: string, photoId: string) {
   if (!isFirebaseConfigured || !storage) return;
-  try {
-    await deleteObject(ref(storage, `families/${familyId}/photos/${photoId}`));
-  } catch {}
+  try { await deleteObject(ref(storage, `families/${familyId}/photos/${photoId}`)); } catch {}
 }
 
-// 이전 이름 호환성 유지
 export const deletePhoto = deletePhotoFromStorage;
 
 // ── 사진 메타데이터 저장/삭제/구독 ───────────────────────────────
@@ -157,8 +194,7 @@ export async function deletePhotoMeta(familyId: string, photoId: string) {
 }
 
 export function listenPhotos(
-  familyId: string,
-  callback: (photos: DocumentData[]) => void
+  familyId: string, callback: (photos: DocumentData[]) => void
 ): Unsubscribe {
   if (!isFirebaseConfigured || !db) return () => {};
   return onSnapshot(
