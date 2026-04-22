@@ -731,12 +731,6 @@ export default function DailyPage() {
                   onChange={e=>setEditModal({...editModal,entry:{...editModal.entry,weight:e.target.value===""?"":Number(e.target.value)}})} /></div>
               <div className="modal-field"><label>메모</label>
                 <input type="text" value={editModal.entry.note} onChange={e=>setEditModal({...editModal,entry:{...editModal.entry,note:e.target.value}})} /></div>
-              {/* 키/몸무게 전용 버튼: 취소 · 삭제 · 완료 */}
-              <div className="modal-buttons">
-                <button className="btn-cancel" onClick={()=>setEditModal(null)}>취소</button>
-                <button className="btn-delete" onClick={()=>{ removeGrowth(editModal.entry.id); setEditModal(null); }}>🗑️ 삭제</button>
-                <button className="btn-save" onClick={saveEdit}>✓ 완료</button>
-              </div>
             </>)}
 
             {editModal.type==="note" && (<>
@@ -753,13 +747,11 @@ export default function DailyPage() {
                 <textarea value={editModal.entry.content} onChange={e=>setEditModal({...editModal,entry:{...editModal.entry,content:e.target.value}})} /></div>
             </>)}
 
-            {/* 수유·수면·특이사항 공용 버튼 (키/몸무게는 자체 버튼 사용) */}
-            {editModal.type !== "growth" && (
-              <div className="modal-buttons">
-                <button className="btn-cancel" onClick={()=>setEditModal(null)}>취소</button>
-                <button className="btn-save" onClick={saveEdit}>저장</button>
-              </div>
-            )}
+            {/* 모든 수정 모달 공통 버튼: 취소 · ✓ 완료 */}
+            <div className="modal-buttons">
+              <button className="btn-cancel" onClick={()=>setEditModal(null)}>취소</button>
+              <button className="btn-save" onClick={saveEdit}>✓ 완료</button>
+            </div>
           </div>
         </div>
       )}
